@@ -1,0 +1,64 @@
+name: Bug report
+description: Report a defect. Please include the versions and a scan that reproduces it.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing: the package is feature-complete for the formats and
+        behaviors listed in the README. Please check whether you are seeing
+        documented behavior (for example: scans pause while an NFC handoff
+        is active, or the camera releases when you call the lifecycle
+        methods) before reporting.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect, what actually happened?
+      placeholder: Expected first rescan within ~0.2 s, took ~1.3 s instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction steps
+      description: A minimal app or the exact steps to see it.
+      validations:
+        required: true
+
+  - type: input
+    id: device
+    attributes:
+      label: Device
+      description: Model and Android version the issue shows on.
+      placeholder: Pixel 8a, Android 16
+    validations:
+      required: true
+
+  - type: input
+    id: versions
+    attributes:
+      label: Package and Flutter versions
+      description: From the package's pubspec.yaml and `flutter --version`.
+      placeholder: instant_barcode_scanner 0.1.0, Flutter 3.3.x stable
+    validations:
+      required: true
+
+  - type: textarea
+    id: flutter-doctor
+    attributes:
+      label: flutter doctor -v output
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: logcat
+    attributes:
+      label: Relevant logcat output
+      description: "`adb logcat -s InstantScanner` around the time of the issue."
+      render: shell
+    validations:
+      required: false

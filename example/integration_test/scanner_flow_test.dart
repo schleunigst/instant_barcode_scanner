@@ -1,0 +1,80 @@
+import 'dart:async';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:instant_barcode_scanner/instant_barcode_scanner.dart';
+import 'package:integration_test/integration_test.dart';
+
+/// End-to-end flows against the real plugin. Run on a device or emulator
+/// with a working camera and the CAMERA permission granted:
+///
+/// ```
+/// coordinator$ adb shell pm grant \
+///   dev.instantbarcode.instant_barcode_scanner.example android.permission.CAMERA
+/// coordinator$ flutter test integration_test
+/// ```
+void main() {
+  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+
+  testWidgets('warm, scan, park, close, dispose, then a fresh session', (
+    tester,
+  ) async {
+    final scanner = InstantBarcodeScanner();
+    await scanner.warmUp();
+    expect(scanner.state, ScannerState.parked);
+
+    // Nothing decodable in front of the camera: the scan times out, and the
+    // scanner stays live (the burst window) rather than falling apart.
+    await expectLater(
+      scanner.scan(timeout: const Duration(milliseconds: 600)),
+      throwsA(isA<TimeoutException>()),
+    );
+    expect(scanner.state, ScannerState.live);
+
+    await scanner.park();
+    expect(scanner.state, ScannerState.parked);
+
+    await scanner.close();
+    expect(scanner.state, ScannerState.closed);
+
+    await scanner.dispose();
+
+    // The plugin resets, it does not die: a controller created after a
+    // dispose must be able to warm up and close again (R3).
+    final again = InstantBarcodeScanner();
+    await again.warmUp();
+    expect(again.state, ScannerState.parked);
+    await again.close();
+    expect(again.state, ScannerState.closed);
+    await again.dispose();
+  });
+
+  testWidgets('a scan in flight is interrupted by an NFC handoff', (
+    tester,
+  ) async {
+    final scanner = InstantBarcodeScanner();
+    await scanner.warmUp();
+
+    final pending = scanner.scan(timeout: const Duration(seconds: 10));
+    final pendingFailure = expectLater(pending, throwsA(isA<StateError>()));
+
+    // Wait for the scan to actually reach `live` so the handoff interrupts a
+    // scan that is waiting for a barcode, not one still driving.
+    final deadline = DateTime.now().add(const Duration(seconds: 5));
+    while (scanner.state != ScannerState.live &&
+        DateTime.now().isBefore(deadline)) {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+    expect(scanner.state, ScannerState.live);
+
+    await scanner.beginNfcHandoff();
+    await pendingFailure;
+    expect(scanner.state, ScannerState.closed);
+
+    // The handoff restores the pre-handoff target.
+    await scanner.endNfcHandoff();
+    expect(scanner.state, ScannerState.live);
+
+    await scanner.close();
+    await scanner.dispose();
+  });
+}

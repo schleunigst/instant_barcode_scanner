@@ -1,0 +1,6 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- The instrumentation APK is the process under test for library
+         modules; GrantPermissionRule can only grant permissions the tested
+         package declares. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+</manifest>

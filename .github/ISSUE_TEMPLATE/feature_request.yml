@@ -1,0 +1,28 @@
+name: Feature request
+description: Suggest a change to the scanner's behavior or its API.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The scope is small on purpose: the package deliberately does a
+        bounded thing well (warm camera session + decode + lifecycle
+        correctness). Features that grow the surface may therefore be
+        rejected to keep maintenance honest. Describing the concrete problem
+        you have, not the solution you imagined, helps a lot.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What can you not do today? Prefer the scenario over the API you want.
+    validations:
+      required: true
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Current workaround
+      description: How do you live with it right now, if you do?
+    validations:
+      required: false

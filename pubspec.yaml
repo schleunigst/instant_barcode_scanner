@@ -1,0 +1,39 @@
+name: instant_barcode_scanner
+description: >-
+  A session-scoped barcode scanner for Flutter. The camera stays warm between
+  scans for fast re-scans, releases truthfully when idle, and returns raw
+  barcode bytes alongside text.
+version: 0.1.0
+homepage: https://github.com/schleunigst/instant_barcode_scanner
+repository: https://github.com/schleunigst/instant_barcode_scanner
+issue_tracker: https://github.com/schleunigst/instant_barcode_scanner/issues
+
+topics:
+  - barcode
+  - scanner
+  - camera
+  - qr-code
+  - ml-kit
+
+environment:
+  sdk: ^3.13.5
+  flutter: '>=3.3.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  meta: ^1.19.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  pigeon: ^29.0.10
+  fake_async: ^1.3.3
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: dev.instantbarcode.instant_barcode_scanner
+        pluginClass: InstantBarcodeScannerPlugin

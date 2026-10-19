@@ -157,7 +157,12 @@ and requires Play Services on the device.
 
 ## Limitations
 
-- Android only. iOS is planned as a separate `instant_barcode_scanner_ios`.
+- Android only for now, exactly as the design paper says below. iOS is
+  planned for this same package, not a sibling: the API, events, and
+  `Capabilities` (`supportsPark`, `supportsTrueClose`, …) are
+  platform-neutral from day one, so iOS code slots in behind the same Dart
+  policy — whether AVFoundation can hold a parked state (rather than
+  close/reopen) is the open question it waits on.
 - The preview has no rotation or aspect-ratio correction yet; it fills the
   widget as-is.
 - No torch control, no analyzer SPI yet (a custom decoder cannot be plugged

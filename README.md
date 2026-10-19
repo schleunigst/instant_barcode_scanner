@@ -3,14 +3,30 @@
 A session-scoped barcode scanner for Flutter. Android only for now.
 
 The camera is the slow part. On the device this package was developed against
-(a Galaxy S24 FE), opening the camera and getting the first preview frame
-takes a median of 1.33 s from closed and 0.27 s from a session that was kept
-open — and a held session costs about 7.9 %/h against 3.5 %/h fully closed.
-Most scanner packages pay the open cost on every scan and keep the camera
-streaming while the screen is up. This package exposes states instead: you
-ask for the state you want and it tells you when that state is actually
-reached, so a scanner screen can hold a warm session, read a code, and go
-dark again on its own.
+(a Galaxy S24 FE), the first preview frame arrives a median of 1.33 s after a
+camera that was fully closed, but 0.27 s after one that was parked. Warm is
+worth it — and warm is not one thing: each camera state steadies out at its
+own battery draw. Measured on that device with the app in the foreground and
+everything else pinned in every measurement (so the deltas are what the
+camera itself costs):
+
+- **`closed`** — the app idles at about **3.5 %/h**. The camera contributes
+  nothing; this is just the phone running your app.
+- **`parked`** (session held, no frames streaming, OS camera indicator dark) —
+  about **7.9 %/h**, roughly 4.4 %/h more than `closed`. This is the warm state:
+  the next scan starts 0.27 s in instead of 1.33 s, and nothing about the phone
+  looks or feels live.
+- **`live`** (streaming and decoding) — about **12.8 %/h**: the exact same
+  foreground app, streaming at full rate, costs close to four times what it
+  does with the camera closed. Most scanner packages sit in this state for
+  the entire time their scan screen is up, barcode already read or not, and
+  pay the 1.33 s again on every re-entry.
+
+This package works the ladder instead. You ask for a state and it resolves
+only when that state is actually true; the idle policy steps it back down on
+its own — `live` to `parked` a few seconds after your last read, `parked` to
+`closed` after a longer idle — so the expensive states are spent only while
+a scan can actually happen.
 
 > Status: `0.1.0`, early development. APIs may change between 0.x releases.
 
@@ -87,6 +103,12 @@ but are not emitted in 0.1; commands resolve to stable states. When the
 mechanism fails mid-session (a disconnect, a configure failure), the state
 becomes `failed`, the camera is released first, and `errorCode` /
 `errorMessage` say what happened. `warmUp()` or `scan()` retries from there.
+
+Steady draws for these states on the same reference device (phone total,
+app foreground): `live` ~12.8 %/h, `parked` ~7.9 %/h, `closed` ~3.5 %/h.
+That ordering is the whole trade: a re-entry from `parked` costs 0.27 s
+instead of 1.33 s, at a draw about a third below `live` and with the OS
+camera indicator dark.
 
 A `closed` status is a promise, not a hint: the camera device is closed and,
 for `beginNfcHandoff()`, the camera HAL has reported the device available

@@ -2,13 +2,15 @@
 
 A session-scoped barcode scanner for Flutter. Android only for now.
 
-The camera is the slow part. On the device this package was developed against
-(a Galaxy S24 FE), the first preview frame arrives a median of 1.33 s after a
-camera that was fully closed, but 0.27 s after one that was parked. Warm is
-worth it — and warm is not one thing: each camera state steadies out at its
-own battery draw. Measured on that device with the app in the foreground and
-everything else pinned in every measurement (so the deltas are what the
-camera itself costs):
+Most of a cold scan's wait is the camera, not the scan: from a fully
+closed state, the first preview frame takes a median of 1.33 s to appear
+on the device this package was developed against (a Galaxy S24 FE), while
+a barcode decode itself runs on the order of milliseconds once frames are
+flowing. A parked camera — device and session held open, but streaming
+nothing — cuts that same open to 0.27 s. A held camera also costs
+battery, though, and its states draw very differently. Measured on that
+device with the app in the foreground and everything else pinned in every
+measurement (so the deltas are what the camera itself costs):
 
 - **`closed`** — the app idles at about **3.5 %/h**. The camera contributes
   nothing; this is just the phone running your app.
@@ -22,11 +24,21 @@ camera itself costs):
   the entire time their scan screen is up, barcode already read or not, and
   pay the 1.33 s again on every re-entry.
 
-This package works the ladder instead. You ask for a state and it resolves
-only when that state is actually true; the idle policy steps it back down on
-its own — `live` to `parked` a few seconds after your last read, `parked` to
-`closed` after a longer idle — so the expensive states are spent only while
-a scan can actually happen.
+For an app whose scan is a one-off errand — a scan button, a result, done —
+[mobile_scanner](https://pub.dev/packages/mobile_scanner) is the right
+shape, and its widget-scoped lifecycle fits: camera on while the scan
+screen is up, off after. The problem appears where scanning spans screens
+and idle stretches — checkout lanes, inventory walks, access points:
+either the camera goes cold between them and every scan re-pays the
+1.33 s, or it keeps streaming and every idle second pays the 12.8 %/h.
+
+This package is for those apps. It holds the camera lifecycle at the app
+session level, and the states are the API: you ask for the state you want
+and the future resolves only when that state is actually true; an idle
+policy steps the scanner down on its own — `live` to `parked` a few
+seconds after your last read (so back-to-back scans stay hot), `parked` to
+`closed` after a longer idle. `live` is spent only while a read can
+actually happen; the seconds in between are parked, not live.
 
 > Status: `0.1.0`, early development. APIs may change between 0.x releases.
 

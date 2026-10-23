@@ -56,7 +56,7 @@ class CameraMechanismDeviceTest {
         mechanism = CameraMechanism(
             context = context,
             previewSurface = { surface },
-            onPreviewSize = { width, height -> texture.setDefaultBufferSize(width, height) },
+            onPreviewSize = { width, height, _ -> texture.setDefaultBufferSize(width, height) },
             onStateChanged = {},
             onBarcodes = {},
             selection = {

@@ -601,6 +601,69 @@ class PlatformCapabilities {
   }
 }
 
+/// Geometry of the preview texture, in buffer pixels plus the clockwise
+/// rotation and mirroring needed to display it upright.
+class PlatformPreviewMetrics {
+  PlatformPreviewMetrics({
+    required this.width,
+    required this.height,
+    required this.rotationDegrees,
+    required this.mirrored,
+  });
+
+  int width;
+
+  int height;
+
+  /// Clockwise rotation to apply before display (0/90/180/270).
+  int rotationDegrees;
+
+  /// Whether the preview should be mirrored horizontally (front cameras).
+  bool mirrored;
+
+  List<Object?> _toList() {
+    return <Object?>[width, height, rotationDegrees, mirrored];
+  }
+
+  Object encode() {
+    return _toList();
+  }
+
+  static PlatformPreviewMetrics decode(Object result) {
+    result as List<Object?>;
+    return PlatformPreviewMetrics(
+      width: result[0]! as int,
+      height: result[1]! as int,
+      rotationDegrees: result[2]! as int,
+      mirrored: result[3]! as bool,
+    );
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  bool operator ==(Object other) {
+    if (other is! PlatformPreviewMetrics || other.runtimeType != runtimeType) {
+      return false;
+    }
+    if (identical(this, other)) {
+      return true;
+    }
+    return _deepEquals(width, other.width) &&
+        _deepEquals(height, other.height) &&
+        _deepEquals(rotationDegrees, other.rotationDegrees) &&
+        _deepEquals(mirrored, other.mirrored);
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  int get hashCode => _deepHash(<Object?>[runtimeType, ..._toList()]);
+
+  @override
+  String toString() {
+    return 'PlatformPreviewMetrics(width: $width, height: $height, rotationDegrees: $rotationDegrees, mirrored: $mirrored)';
+  }
+}
+
 class _PigeonCodec extends StandardMessageCodec {
   const _PigeonCodec();
   @override
@@ -644,6 +707,9 @@ class _PigeonCodec extends StandardMessageCodec {
     } else if (value is PlatformCapabilities) {
       buffer.putUint8(140);
       writeValue(buffer, value.encode());
+    } else if (value is PlatformPreviewMetrics) {
+      buffer.putUint8(141);
+      writeValue(buffer, value.encode());
     } else {
       super.writeValue(buffer, value);
     }
@@ -682,6 +748,8 @@ class _PigeonCodec extends StandardMessageCodec {
         return PlatformSnapshot.decode(readValue(buffer)!);
       case 140:
         return PlatformCapabilities.decode(readValue(buffer)!);
+      case 141:
+        return PlatformPreviewMetrics.decode(readValue(buffer)!);
       default:
         return super.readValueOfType(type, buffer);
     }
@@ -945,6 +1013,9 @@ abstract class ScannerFlutterApi {
   /// A batch of barcodes decoded while `live`.
   void onBarcodes(List<PlatformBarcode> barcodes);
 
+  /// The preview texture's buffer size and display transform changed.
+  void onPreviewMetrics(PlatformPreviewMetrics metrics);
+
   static void setUp(
     ScannerFlutterApi? api, {
     BinaryMessenger? binaryMessenger,
@@ -993,6 +1064,32 @@ abstract class ScannerFlutterApi {
               .cast<PlatformBarcode>();
           try {
             api.onBarcodes(arg_barcodes);
+            return wrapResponse(empty: true);
+          } on PlatformException catch (e) {
+            return wrapResponse(error: e);
+          } catch (e) {
+            return wrapResponse(
+              error: PlatformException(code: 'error', message: e.toString()),
+            );
+          }
+        });
+      }
+    }
+    {
+      final pigeonVar_channel = BasicMessageChannel<Object?>(
+        'dev.flutter.pigeon.instant_barcode_scanner.ScannerFlutterApi.onPreviewMetrics$messageChannelSuffix',
+        pigeonChannelCodec,
+        binaryMessenger: binaryMessenger,
+      );
+      if (api == null) {
+        pigeonVar_channel.setMessageHandler(null);
+      } else {
+        pigeonVar_channel.setMessageHandler((Object? message) async {
+          final List<Object?> args = message! as List<Object?>;
+          final PlatformPreviewMetrics arg_metrics =
+              args[0]! as PlatformPreviewMetrics;
+          try {
+            api.onPreviewMetrics(arg_metrics);
             return wrapResponse(empty: true);
           } on PlatformException catch (e) {
             return wrapResponse(error: e);

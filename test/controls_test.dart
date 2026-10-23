@@ -353,6 +353,25 @@ void main() {
     },
   );
 
+  test('preview metrics reach the controller and clear on dispose', () {
+    fakeAsync((async) {
+      final platform = FakePlatform();
+      final scanner = InstantBarcodeScanner(platform: platform);
+      const metrics = PreviewMetrics(
+        size: Size(1280, 720),
+        rotationDegrees: 90,
+        mirrored: true,
+      );
+
+      platform.emitPreviewMetrics(metrics);
+      expect(scanner.previewMetrics.value, metrics);
+
+      unawaited(scanner.dispose());
+      async.flushMicrotasks();
+      expect(scanner.previewMetrics.value, isNull);
+    });
+  });
+
   test('scanEvents carries the frame batch and scans flattens it', () {
     fakeAsync((async) {
       final platform = FakePlatform();

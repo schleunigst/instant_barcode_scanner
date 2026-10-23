@@ -686,6 +686,62 @@ data class PlatformCapabilities (
     return "PlatformCapabilities(supportsPark=$supportsPark, supportsTrueClose=$supportsTrueClose, supportsTorch=$supportsTorch, supportsZoom=$supportsZoom, minZoom=$minZoom, maxZoom=$maxZoom)"
   }
 }
+
+/**
+ * Geometry of the preview texture, in buffer pixels plus the clockwise
+ * rotation and mirroring needed to display it upright.
+ *
+ * Generated class from Pigeon that represents data sent in messages.
+ */
+data class PlatformPreviewMetrics (
+  val width: Long,
+  val height: Long,
+  /** Clockwise rotation to apply before display (0/90/180/270). */
+  val rotationDegrees: Long,
+  /** Whether the preview should be mirrored horizontally (front cameras). */
+  val mirrored: Boolean
+)
+ {
+  companion object {
+    fun fromList(pigeonVar_list: List<Any?>): PlatformPreviewMetrics {
+      val width = pigeonVar_list[0] as Long
+      val height = pigeonVar_list[1] as Long
+      val rotationDegrees = pigeonVar_list[2] as Long
+      val mirrored = pigeonVar_list[3] as Boolean
+      return PlatformPreviewMetrics(width, height, rotationDegrees, mirrored)
+    }
+  }
+  fun toList(): List<Any?> {
+    return listOf(
+      width,
+      height,
+      rotationDegrees,
+      mirrored,
+    )
+  }
+  override fun equals(other: Any?): Boolean {
+    if (other == null || other.javaClass != javaClass) {
+      return false
+    }
+    if (this === other) {
+      return true
+    }
+    val other = other as PlatformPreviewMetrics
+    return MessagesPigeonUtils.deepEquals(this.width, other.width) && MessagesPigeonUtils.deepEquals(this.height, other.height) && MessagesPigeonUtils.deepEquals(this.rotationDegrees, other.rotationDegrees) && MessagesPigeonUtils.deepEquals(this.mirrored, other.mirrored)
+  }
+
+  override fun hashCode(): Int {
+    var result = javaClass.hashCode()
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.width)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.height)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.rotationDegrees)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.mirrored)
+    return result
+  }
+  override fun toString(): String {
+    return "PlatformPreviewMetrics(width=$width, height=$height, rotationDegrees=$rotationDegrees, mirrored=$mirrored)"
+  }
+}
 private open class MessagesPigeonCodec : StandardMessageCodec() {
   override fun readValueOfType(type: Byte, buffer: ByteBuffer): Any? {
     return when (type) {
@@ -749,6 +805,11 @@ private open class MessagesPigeonCodec : StandardMessageCodec() {
           PlatformCapabilities.fromList(it)
         }
       }
+      141.toByte() -> {
+        return (readValue(buffer) as? List<Any?>)?.let {
+          PlatformPreviewMetrics.fromList(it)
+        }
+      }
       else -> super.readValueOfType(type, buffer)
     }
   }
@@ -800,6 +861,10 @@ private open class MessagesPigeonCodec : StandardMessageCodec() {
       }
       is PlatformCapabilities -> {
         stream.write(140)
+        writeValue(stream, value.toList())
+      }
+      is PlatformPreviewMetrics -> {
+        stream.write(141)
         writeValue(stream, value.toList())
       }
       else -> super.writeValue(stream, value)
@@ -1105,6 +1170,26 @@ class ScannerFlutterApi(private val binaryMessenger: BinaryMessenger, private va
       val channelName = "dev.flutter.pigeon.instant_barcode_scanner.ScannerFlutterApi.onBarcodes$separatedMessageChannelSuffix"
       val channel = BasicMessageChannel<Any?>(binaryMessenger, channelName, codec)
       channel.send(listOf(barcodesArg)) {
+        if (it is List<*>) {
+          if (it.size > 1) {
+            continuation.resumeWithException(FlutterError(it[0] as String, it[1] as String, it[2] as String?))
+          } else {
+            continuation.resume(Unit)
+          }
+        } else {
+          continuation.resumeWithException(MessagesPigeonUtils.createConnectionError(channelName))
+        } 
+      }
+    }
+  }
+  /** The preview texture's buffer size and display transform changed. */
+  suspend fun onPreviewMetrics(metricsArg: PlatformPreviewMetrics)
+{
+    val separatedMessageChannelSuffix = if (messageChannelSuffix.isNotEmpty()) ".$messageChannelSuffix" else ""
+    return suspendCancellableCoroutine { continuation ->
+      val channelName = "dev.flutter.pigeon.instant_barcode_scanner.ScannerFlutterApi.onPreviewMetrics$separatedMessageChannelSuffix"
+      val channel = BasicMessageChannel<Any?>(binaryMessenger, channelName, codec)
+      channel.send(listOf(metricsArg)) {
         if (it is List<*>) {
           if (it.size > 1) {
             continuation.resumeWithException(FlutterError(it[0] as String, it[1] as String, it[2] as String?))

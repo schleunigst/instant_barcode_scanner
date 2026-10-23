@@ -14,6 +14,7 @@ export 'src/platform/types.dart'
         CameraFacing,
         CameraLensType,
         DetectionSpeed,
+        PreviewMetrics,
         ScanEvent,
         ScanResult,
         ScannerCapabilities,

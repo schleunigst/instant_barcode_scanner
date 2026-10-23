@@ -3,8 +3,10 @@ package dev.instantbarcode.instant_barcode_scanner
 import android.Manifest
 import android.app.Activity
 import android.app.Application
+import android.content.ComponentCallbacks
 import android.content.Context
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import android.net.Uri
@@ -21,6 +23,7 @@ import dev.instantbarcode.instant_barcode_scanner.pigeon.PlatformCameraFacing
 import dev.instantbarcode.instant_barcode_scanner.pigeon.PlatformCameraLensType
 import dev.instantbarcode.instant_barcode_scanner.pigeon.PlatformCapabilities
 import dev.instantbarcode.instant_barcode_scanner.pigeon.PlatformDetectionSpeed
+import dev.instantbarcode.instant_barcode_scanner.pigeon.PlatformPreviewMetrics
 import dev.instantbarcode.instant_barcode_scanner.pigeon.PlatformRect
 import dev.instantbarcode.instant_barcode_scanner.pigeon.PlatformScannerConfig
 import dev.instantbarcode.instant_barcode_scanner.pigeon.PlatformSnapshot
@@ -74,6 +77,9 @@ class InstantBarcodeScannerPlugin : FlutterPlugin, ActivityAware, ScannerHostApi
     private var surface: Surface? = null
     private var mechanism: CameraMechanism? = null
     private var scanWindow: PlatformRect? = null
+    private var previewWidth = 0
+    private var previewHeight = 0
+    private var previewSensorOrientation = 0
     private var flutterApi: ScannerFlutterApi? = null
     private var activity: Activity? = null
     private var activityBinding: ActivityPluginBinding? = null
@@ -97,6 +103,20 @@ class InstantBarcodeScannerPlugin : FlutterPlugin, ActivityAware, ScannerHostApi
     )
 
     private var permissionResume: ((Boolean) -> Unit)? = null
+    private val configurationCallbacks = object : ComponentCallbacks {
+        override fun onConfigurationChanged(newConfig: Configuration) {
+            // Flutter's host activity handles rotation itself, so the plugin
+            // must republish the display transform instead of waiting for an
+            // activity re-creation.
+            publishPreviewMetrics(
+                previewWidth,
+                previewHeight,
+                previewSensorOrientation,
+            )
+        }
+
+        override fun onLowMemory() {}
+    }
     private val permissionListener =
         PluginRegistry.RequestPermissionsResultListener { requestCode, _, grantResults ->
             if (requestCode != PERMISSION_REQUEST_CODE) {
@@ -120,6 +140,7 @@ class InstantBarcodeScannerPlugin : FlutterPlugin, ActivityAware, ScannerHostApi
     override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         registry = binding.textureRegistry
         applicationContext = binding.applicationContext
+        binding.applicationContext.registerComponentCallbacks(configurationCallbacks)
         flutterApi = ScannerFlutterApi(binding.binaryMessenger)
         ScannerHostApi.setUp(binding.binaryMessenger, this)
     }
@@ -135,6 +156,7 @@ class InstantBarcodeScannerPlugin : FlutterPlugin, ActivityAware, ScannerHostApi
             releaseTexture()
         }
         registry = null
+        applicationContext?.unregisterComponentCallbacks(configurationCallbacks)
         applicationContext = null
         permissionResume?.invoke(false)
         permissionResume = null
@@ -404,8 +426,9 @@ class InstantBarcodeScannerPlugin : FlutterPlugin, ActivityAware, ScannerHostApi
         val created = CameraMechanism(
             context = context,
             previewSurface = { surface },
-            onPreviewSize = { width, height ->
+            onPreviewSize = { width, height, sensorOrientation ->
                 entry?.surfaceTexture()?.setDefaultBufferSize(width, height)
+                publishPreviewMetrics(width, height, sensorOrientation)
             },
             onStateChanged = { snapshot ->
                 lastState = snapshot.state
@@ -482,6 +505,13 @@ class InstantBarcodeScannerPlugin : FlutterPlugin, ActivityAware, ScannerHostApi
     private fun attachActivity(host: Activity) {
         detachActivity()
         activity = host
+        // Rotation may have changed while the host was re-created; the
+        // buffer size is unchanged, so republish the display transform.
+        publishPreviewMetrics(
+            previewWidth,
+            previewHeight,
+            previewSensorOrientation,
+        )
         val callbacks = object : Application.ActivityLifecycleCallbacks {
             override fun onActivityStopped(stopped: Activity) {
                 if (stopped !== host) {
@@ -526,6 +556,41 @@ class InstantBarcodeScannerPlugin : FlutterPlugin, ActivityAware, ScannerHostApi
         }
         lifecycleCallbacks = null
         activity = null
+    }
+
+    private fun publishPreviewMetrics(
+        width: Int,
+        height: Int,
+        sensorOrientation: Int,
+    ) {
+        if (width <= 0 || height <= 0) {
+            return
+        }
+        previewWidth = width
+        previewHeight = height
+        previewSensorOrientation = sensorOrientation
+        val api = flutterApi ?: return
+        val host = activity ?: return
+        @Suppress("DEPRECATION")
+        val displayRotation = when (host.windowManager.defaultDisplay.rotation) {
+            Surface.ROTATION_90 -> 90
+            Surface.ROTATION_180 -> 180
+            Surface.ROTATION_270 -> 270
+            else -> 0
+        }
+        val front = selection.facing == PlatformCameraFacing.FRONT
+        val rotation = if (front) {
+            (sensorOrientation + displayRotation) % 360
+        } else {
+            (sensorOrientation - displayRotation + 360) % 360
+        }
+        val metrics = PlatformPreviewMetrics(
+            width = width.toLong(),
+            height = height.toLong(),
+            rotationDegrees = rotation.toLong(),
+            mirrored = front,
+        )
+        scope.launch { api.onPreviewMetrics(metrics) }
     }
 
     private fun releaseTexture() {

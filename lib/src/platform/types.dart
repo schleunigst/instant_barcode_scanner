@@ -46,6 +46,41 @@ enum CameraFacing { back, front, external }
 /// [any] keeps the platform's default choice for the facing direction.
 enum CameraLensType { any, normal, wide, zoom }
 
+/// Geometry of the preview texture: buffer size plus the clockwise rotation
+/// and mirroring needed to display it upright.
+class PreviewMetrics {
+  const PreviewMetrics({
+    required this.size,
+    required this.rotationDegrees,
+    required this.mirrored,
+  });
+
+  /// Buffer size in pixels, in the camera's native orientation.
+  final Size size;
+
+  /// Clockwise rotation to apply before display (0/90/180/270).
+  final int rotationDegrees;
+
+  /// Whether the preview should be mirrored horizontally (front cameras).
+  final bool mirrored;
+
+  @override
+  bool operator ==(Object other) {
+    return other is PreviewMetrics &&
+        other.size == size &&
+        other.rotationDegrees == rotationDegrees &&
+        other.mirrored == mirrored;
+  }
+
+  @override
+  int get hashCode => Object.hash(size, rotationDegrees, mirrored);
+
+  @override
+  String toString() =>
+      'PreviewMetrics($size, rotation: $rotationDegrees, '
+      'mirrored: $mirrored)';
+}
+
 /// The confirmed torch state of the selected camera.
 enum TorchState {
   off,

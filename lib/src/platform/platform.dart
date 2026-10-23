@@ -1,4 +1,4 @@
-import 'dart:ui' show Offset, Rect;
+import 'dart:ui' show Offset, Rect, Size;
 
 import '../pigeon/messages.g.dart' as pigeon;
 import 'types.dart';
@@ -20,6 +20,7 @@ abstract class InstantBarcodeScannerPlatform {
   void setEventHandlers({
     required void Function(ScannerStatus status) onState,
     required void Function(List<ScanResult> results) onBarcodes,
+    required void Function(PreviewMetrics metrics) onPreviewMetrics,
   });
 
   /// Apply the fixed controller configuration. Called before the first call
@@ -77,14 +78,28 @@ class MethodChannelInstantBarcodeScannerPlatform
 
   void Function(ScannerStatus status)? _onState;
   void Function(List<ScanResult> results)? _onBarcodes;
+  void Function(PreviewMetrics metrics)? _onPreviewMetrics;
 
   @override
   void setEventHandlers({
     required void Function(ScannerStatus status) onState,
     required void Function(List<ScanResult> results) onBarcodes,
+    required void Function(PreviewMetrics metrics) onPreviewMetrics,
   }) {
     _onState = onState;
     _onBarcodes = onBarcodes;
+    _onPreviewMetrics = onPreviewMetrics;
+  }
+
+  @override
+  void onPreviewMetrics(pigeon.PlatformPreviewMetrics metrics) {
+    _onPreviewMetrics?.call(
+      PreviewMetrics(
+        size: Size(metrics.width.toDouble(), metrics.height.toDouble()),
+        rotationDegrees: metrics.rotationDegrees,
+        mirrored: metrics.mirrored,
+      ),
+    );
   }
 
   @override

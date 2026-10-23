@@ -10,7 +10,7 @@ can be revisited when the human returns. Tranche A is implemented in the
 working tree and verified by `flutter analyze`, the Dart suite, a debug APK
 build, 4/4 instrumented tests, and the integration flows on the `pixel_bench`
 emulator. Tranche B's
-decoding work is implemented on the same gates (77 Dart tests); geometry
+decoding work is implemented on the same gates (84 Dart tests); geometry
 validation on two orientations/facings and the battery spot-check still need
 a physical device (the emulator has one emulated back camera).
 

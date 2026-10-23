@@ -80,7 +80,7 @@ dispose-reset semantics.
 ## Verification
 
 - `flutter analyze`: no issues (package and example).
-- `flutter test`: 73 tests green at tranche A (77 after tranche B decoding: detection policy, scan window, still images, batches).
+- `flutter test`: 73 tests green at tranche A (77 after tranche B decoding; 84 after tranche C preview geometry).
 - `connectedDebugAndroidTest`: 4/4 green on `pixel_bench` after the tranche B
   constructor/config changes.
 - Integration: `scanner_flow_test` 2/2 (now also exercises `updateScanWindow`

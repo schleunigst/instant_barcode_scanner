@@ -358,33 +358,40 @@ class InstantBarcodeScanner {
     });
   }
 
-  /// Turn the torch on or off. Requires `live`; the torch always goes off
-  /// when streaming stops.
+  /// Turn the torch on or off. Enabling requires `live`; the torch always
+  /// goes off when streaming stops.
   Future<void> setTorch(bool enabled) async {
     _ensureUsable();
     if (enabled && state != ScannerState.live) {
       throw StateError('the torch can only be enabled while live');
     }
-    await _ensureConfigured();
-    final caps = await capabilities;
-    if (!caps.supportsTorch) {
-      throw ScannerException(
-        ScannerStatus(
-          state: state,
-          errorCode: 'unsupported',
-          errorMessage: 'the selected camera has no controllable torch',
-        ),
-      );
-    }
-    try {
-      await _platform.setTorch(enabled);
-    } on PlatformException catch (e) {
-      throw _platformFailure(e);
-    }
-    _torchState.value = enabled ? TorchState.on : TorchState.off;
+    await _enqueue(() async {
+      _ensureUsable();
+      if (enabled && state != ScannerState.live) {
+        throw StateError('the torch can only be enabled while live');
+      }
+      await _ensureConfigured();
+      final caps = await capabilities;
+      _ensureUsable();
+      if (!caps.supportsTorch) {
+        throw ScannerException(
+          ScannerStatus(
+            state: state,
+            errorCode: 'unsupported',
+            errorMessage: 'the selected camera has no controllable torch',
+          ),
+        );
+      }
+      try {
+        await _platform.setTorch(enabled);
+      } on PlatformException catch (e) {
+        throw _platformFailure(e);
+      }
+      _torchState.value = enabled ? TorchState.on : TorchState.off;
+    });
   }
 
-  /// Toggle the torch. No-op when the camera has no flash.
+  /// Toggle the torch. Throws `unsupported` when the camera has no flash.
   Future<void> toggleTorch() => setTorch(_torchState.value != TorchState.on);
 
   /// Set zoom, normalized 0..1 across the selected camera's range.
@@ -393,24 +400,28 @@ class InstantBarcodeScanner {
     if (!(scale >= 0 && scale <= 1)) {
       throw RangeError.range(scale, 0, 1, 'scale');
     }
-    await _ensureConfigured();
-    final caps = await capabilities;
-    if (!caps.supportsZoom) {
-      throw ScannerException(
-        ScannerStatus(
-          state: state,
-          errorCode: 'unsupported',
-          errorMessage: 'the selected camera does not support zoom',
-        ),
-      );
-    }
-    final ratio = caps.minZoom + scale * (caps.maxZoom - caps.minZoom);
-    try {
-      await _platform.setZoom(ratio);
-    } on PlatformException catch (e) {
-      throw _platformFailure(e);
-    }
-    _zoomScale.value = scale;
+    await _enqueue(() async {
+      _ensureUsable();
+      await _ensureConfigured();
+      final caps = await capabilities;
+      _ensureUsable();
+      if (!caps.supportsZoom) {
+        throw ScannerException(
+          ScannerStatus(
+            state: state,
+            errorCode: 'unsupported',
+            errorMessage: 'the selected camera does not support zoom',
+          ),
+        );
+      }
+      final ratio = caps.minZoom + scale * (caps.maxZoom - caps.minZoom);
+      try {
+        await _platform.setZoom(ratio);
+      } on PlatformException catch (e) {
+        throw _platformFailure(e);
+      }
+      _zoomScale.value = scale;
+    });
   }
 
   /// Return to the widest field of view.

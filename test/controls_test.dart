@@ -221,6 +221,31 @@ void main() {
     });
   });
 
+  test('controls queue behind lifecycle commands in call order', () {
+    fakeAsync((async) {
+      final platform = FakePlatform()..capabilitiesResult = _caps(torch: true);
+      final scanner = InstantBarcodeScanner(platform: platform);
+
+      unawaited(scanner.scan().then((_) {}, onError: (Object _) {}));
+      async.flushMicrotasks();
+      expect(scanner.state, ScannerState.live);
+
+      unawaited(scanner.close());
+      Object? error;
+      unawaited(
+        scanner.setTorch(true).then((_) {}, onError: (Object e) => error = e),
+      );
+      async.flushMicrotasks();
+
+      expect(scanner.state, ScannerState.closed);
+      expect(error, isA<StateError>());
+      expect(platform.torch, isFalse);
+
+      unawaited(scanner.dispose());
+      async.flushMicrotasks();
+    });
+  });
+
   test('scan window is forwarded before warmUp and can be cleared', () {
     fakeAsync((async) {
       final platform = FakePlatform();

@@ -261,24 +261,33 @@ class InstantBarcodeScannerPlugin : FlutterPlugin, ActivityAware, ScannerHostApi
         facing: PlatformCameraFacing,
         lensType: PlatformCameraLensType,
     ): PlatformSnapshot {
+        val previous = selection
         selection = CameraSelection(facing, lensType)
         val current = mechanism ?: return PlatformSnapshot(PlatformState.CLOSED, null, null)
         if (!ensureCameraPermission()) {
+            selection = previous
             return PlatformSnapshot(
                 PlatformState.FAILED,
                 "permission_denied",
                 "camera permission was not granted",
             )
         }
-        return mutex.withLock {
+        val snapshot = mutex.withLock {
             suspendCancellableCoroutine { continuation ->
-                current.switchCamera { snapshot ->
+                current.switchCamera { result ->
                     if (continuation.isActive) {
-                        continuation.resume(snapshot)
+                        continuation.resume(result)
                     }
                 }
             }
         }
+        // The controller keeps its previous config when a switch fails; keep
+        // the plugin's selection aligned so a later drive does not silently
+        // open the camera the caller was told it had not switched to.
+        if (snapshot.state == PlatformState.FAILED) {
+            selection = previous
+        }
+        return snapshot
     }
 
     override suspend fun setTorch(enabled: Boolean) {

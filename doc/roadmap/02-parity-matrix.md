@@ -295,8 +295,24 @@ validation, battery spot-check, integration exercise of the new surfaces.
 Scope: aspect/fit preview, overlay/placeholder builders, orientation
 correction, optional tap-to-focus.
 
-Acceptance: visual check in `example/` on device; widget tests for builder
-wiring; docs.
+**Implemented 2026-10-23 as far as static verification allows.**
+`InstantBarcodeScannerView` gains `fit` (`BoxFit.cover` default),
+`overlayBuilder`, `placeholderBuilder`, upright rotation and front-camera
+mirroring from `PreviewMetrics`. The platform publishes buffer size/sensor
+orientation through the pigeon Flutter API and recomputes display rotation
+when the host activity is re-created. Tap-to-focus stays in the
+beyond-parity backlog (no focus metering plumbing yet).
+
+Deviation from the proposal: rotation is applied in the widget
+(`RotatedBox` + horizontal flip + `FittedBox`) instead of a native texture
+transform matrix. It is enough for a single full-frame camera stream and
+keeps the geometry visible to widget tests; a camera that applies its own
+preview crop may still need a native transform later.
+
+Acceptance: widget tests cover placeholder/overlay wiring, fit, rotation and
+mirroring; `flutter analyze`, the suite and the APK are green. **Outstanding:**
+visual check in `example/` on a physical device (both facings and a rotated
+activity), tap-to-focus decision.
 
 ## Deliberate non-goals
 

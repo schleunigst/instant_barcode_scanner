@@ -52,6 +52,7 @@ import dev.instantbarcode.instant_barcode_scanner.pigeon.PlatformState
  * @param onBarcodes decoded barcode batches, main thread. Only emitted while
  *   `live`.
  * @param onAnalysisFrame upright analysis-frame geometry, camera thread.
+ * @param onFrameAnalyzed one camera frame was submitted to the decoder.
  */
 internal class CameraMechanism(
     private val context: Context,
@@ -60,6 +61,7 @@ internal class CameraMechanism(
     private val onStateChanged: (PlatformSnapshot) -> Unit,
     private val onBarcodes: (List<PlatformBarcode>) -> Unit,
     private val onAnalysisFrame: (PlatformAnalysisFrame) -> Unit,
+    private val onFrameAnalyzed: () -> Unit,
     private val selection: () -> CameraSelection,
     formats: List<PlatformBarcodeFormat>,
     detectionSpeed: PlatformDetectionSpeed,
@@ -114,6 +116,7 @@ internal class CameraMechanism(
         isLive = { streaming },
         onBarcodes = onBarcodes,
         onAnalysisFrame = onAnalysisFrame,
+        onFrameAnalyzed = onFrameAnalyzed,
     )
 
     /** False once [dispose] has been called; no new work is accepted. */

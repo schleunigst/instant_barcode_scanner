@@ -60,6 +60,7 @@ class CameraMechanismDeviceTest {
             onStateChanged = {},
             onBarcodes = {},
             onAnalysisFrame = {},
+            onFrameAnalyzed = {},
             selection = {
                 CameraSelection(PlatformCameraFacing.BACK, PlatformCameraLensType.ANY)
             },

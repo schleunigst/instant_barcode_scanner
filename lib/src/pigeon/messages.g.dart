@@ -928,6 +928,27 @@ class ScannerHostApi {
     return pigeonVar_replyValue! as PlatformCapabilities;
   }
 
+  /// Number of camera frames submitted to the decoder since the current
+  /// controller configured the plugin. Still-image decodes are not counted.
+  Future<int> getAnalyzedFrames() async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.instant_barcode_scanner.ScannerHostApi.getAnalyzedFrames$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(null);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: false,
+    );
+    return pigeonVar_replyValue! as int;
+  }
+
   /// Drive the mechanism toward [target].
   Future<PlatformSnapshot> driveTo(PlatformState target) async {
     final pigeonVar_channelName =

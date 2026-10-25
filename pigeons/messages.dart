@@ -262,6 +262,11 @@ abstract class ScannerHostApi {
   @async
   PlatformCapabilities getCapabilities();
 
+  /// Number of camera frames submitted to the decoder since the current
+  /// controller configured the plugin. Still-image decodes are not counted.
+  @async
+  int getAnalyzedFrames();
+
   /// Drive the mechanism toward [target].
   @async
   PlatformSnapshot driveTo(PlatformState target);

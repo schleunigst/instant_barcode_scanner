@@ -108,6 +108,117 @@ class AnalysisMetrics {
   String toString() => 'AnalysisMetrics($size, rotation: $rotationDegrees)';
 }
 
+/// Cumulative scanner counters and timings since the controller was created.
+///
+/// [analyzedFrames] comes from the platform and counts camera frames actually
+/// submitted to the decoder. The remaining fields are maintained by the
+/// controller, so they also cover failures that happen before the platform
+/// mechanism exists.
+class ScannerMetrics {
+  const ScannerMetrics({
+    this.scanRequests = 0,
+    this.scanSuccesses = 0,
+    this.scanTimeouts = 0,
+    this.scanFailures = 0,
+    this.barcodes = 0,
+    this.decodedFrames = 0,
+    this.analyzedFrames = 0,
+    this.cameraStarts = 0,
+    this.failures = 0,
+    this.lastScanLatency,
+    this.lastOpenLatency,
+    this.lastResumeLatency,
+  });
+
+  /// Calls to `scan()`, including calls that joined an in-flight scan.
+  final int scanRequests;
+
+  /// Scans that resolved with a barcode.
+  final int scanSuccesses;
+
+  /// Scans that timed out waiting for a barcode.
+  final int scanTimeouts;
+
+  /// Scans that failed for any other reason (cancellation, camera failure,
+  /// dispose, or a platform error).
+  final int scanFailures;
+
+  /// Barcodes delivered to `scans`, `scanEvents`, or a pending `scan()`.
+  final int barcodes;
+
+  /// Analyzed frames that decoded at least one barcode and produced a
+  /// `ScanEvent`.
+  final int decodedFrames;
+
+  /// Camera frames submitted to the decoder, including frames with no
+  /// barcode. Counted by the platform.
+  final int analyzedFrames;
+
+  /// Confirmed camera openings, including reopenings after an idle close,
+  /// camera switches, and NFC handoffs.
+  final int cameraStarts;
+
+  /// Confirmed platform failures. Consecutive failure snapshots for one
+  /// failed session count once.
+  final int failures;
+
+  /// Time from the last successful `scan()` call to its first barcode,
+  /// including any resume or cold open. Null until the first success.
+  final Duration? lastScanLatency;
+
+  /// Time the last platform drive spent opening a closed or failed camera,
+  /// until the mechanism confirmed `open`, `parked`, or `live`. Null until
+  /// the first such drive.
+  final Duration? lastOpenLatency;
+
+  /// Time the last platform drive spent going from `parked`/`open` to `live`.
+  /// Null until the first warm resume.
+  final Duration? lastResumeLatency;
+
+  @override
+  bool operator ==(Object other) {
+    return other is ScannerMetrics &&
+        other.scanRequests == scanRequests &&
+        other.scanSuccesses == scanSuccesses &&
+        other.scanTimeouts == scanTimeouts &&
+        other.scanFailures == scanFailures &&
+        other.barcodes == barcodes &&
+        other.decodedFrames == decodedFrames &&
+        other.analyzedFrames == analyzedFrames &&
+        other.cameraStarts == cameraStarts &&
+        other.failures == failures &&
+        other.lastScanLatency == lastScanLatency &&
+        other.lastOpenLatency == lastOpenLatency &&
+        other.lastResumeLatency == lastResumeLatency;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    scanRequests,
+    scanSuccesses,
+    scanTimeouts,
+    scanFailures,
+    barcodes,
+    decodedFrames,
+    analyzedFrames,
+    cameraStarts,
+    failures,
+    lastScanLatency,
+    lastOpenLatency,
+    lastResumeLatency,
+  );
+
+  @override
+  String toString() =>
+      'ScannerMetrics(scanRequests: $scanRequests, '
+      'scanSuccesses: $scanSuccesses, scanTimeouts: $scanTimeouts, '
+      'scanFailures: $scanFailures, barcodes: $barcodes, '
+      'decodedFrames: $decodedFrames, analyzedFrames: $analyzedFrames, '
+      'cameraStarts: $cameraStarts, failures: $failures, '
+      'lastScanLatency: $lastScanLatency, lastOpenLatency: $lastOpenLatency, '
+      'lastResumeLatency: $lastResumeLatency)';
+}
+
 /// The confirmed torch state of the selected camera.
 enum TorchState {
   off,

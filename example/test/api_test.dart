@@ -7,6 +7,10 @@ void main() {
     expect(result.rawBytes, isNull);
     expect(result.text, 'hello');
 
+    const metrics = ScannerMetrics();
+    expect(metrics.scanRequests, 0);
+    expect(metrics.analyzedFrames, 0);
+
     const policy = ScannerPolicy();
     expect(policy.idleTarget(ScannerState.live), ScannerState.parked);
     expect(policy.idleTarget(ScannerState.parked), ScannerState.closed);

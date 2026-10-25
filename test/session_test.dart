@@ -136,6 +136,17 @@ void main() {
     });
   });
 
+  test('readMetrics delegates and rejects after dispose', () async {
+    final platform = FakePlatform()..analyzedFrames = 4;
+    final session = ScanSession(platform: platform);
+
+    final metrics = await session.readMetrics();
+    expect(metrics.analyzedFrames, 4);
+
+    await session.dispose();
+    expect(() => session.readMetrics(), throwsStateError);
+  });
+
   test('dispose is idempotent and rejects further use', () async {
     final platform = FakePlatform();
     final session = ScanSession(platform: platform);

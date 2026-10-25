@@ -81,6 +81,33 @@ class PreviewMetrics {
       'mirrored: $mirrored)';
 }
 
+/// Geometry of the upright analysis frames barcode coordinates refer to.
+///
+/// [ScanResult.boundingBox] and [ScanResult.corners] are in this coordinate
+/// space. The size changes when the camera or analysis resolution changes.
+class AnalysisMetrics {
+  const AnalysisMetrics({required this.size, required this.rotationDegrees});
+
+  /// Upright analysis-frame size in pixels.
+  final Size size;
+
+  /// Clockwise rotation applied to the camera buffer to make it upright.
+  final int rotationDegrees;
+
+  @override
+  bool operator ==(Object other) {
+    return other is AnalysisMetrics &&
+        other.size == size &&
+        other.rotationDegrees == rotationDegrees;
+  }
+
+  @override
+  int get hashCode => Object.hash(size, rotationDegrees);
+
+  @override
+  String toString() => 'AnalysisMetrics($size, rotation: $rotationDegrees)';
+}
+
 /// The confirmed torch state of the selected camera.
 enum TorchState {
   off,
@@ -95,13 +122,18 @@ enum TorchState {
 /// `InstantBarcodeScanner.scanEvents` emits these raw batches; `scans`
 /// flattens them and `scan()` resolves with the first barcode.
 class ScanEvent {
-  ScanEvent(List<ScanResult> barcodes)
+  ScanEvent(List<ScanResult> barcodes, {this.analysisFrame})
     : barcodes = List<ScanResult>.unmodifiable(barcodes);
 
   final List<ScanResult> barcodes;
 
+  /// Geometry the barcode coordinates in [barcodes] refer to, when known.
+  final AnalysisMetrics? analysisFrame;
+
   @override
-  String toString() => 'ScanEvent(${barcodes.length} barcodes)';
+  String toString() =>
+      'ScanEvent(${barcodes.length} barcodes'
+      '${analysisFrame == null ? '' : ', $analysisFrame'})';
 }
 
 /// How aggressively duplicate detections are suppressed.
@@ -124,17 +156,18 @@ enum DetectionSpeed {
 /// controller (dispose is a reset); [InstantBarcodeScanner.switchCamera] is
 /// the exception for facing/lens.
 class ScannerConfig {
-  const ScannerConfig({
+  ScannerConfig({
     this.facing = CameraFacing.back,
     this.lensType = CameraLensType.any,
-    this.formats = const <BarcodeFormat>[],
+    List<BarcodeFormat> formats = const <BarcodeFormat>[],
     this.torchEnabled = false,
     this.initialZoom,
     this.detectionSpeed = DetectionSpeed.normal,
     this.detectionTimeout = const Duration(milliseconds: 250),
     this.invertImage = false,
     this.cameraResolution,
-  }) : assert(
+  }) : formats = List<BarcodeFormat>.unmodifiable(formats),
+       assert(
          initialZoom == null || (initialZoom >= 0 && initialZoom <= 1),
          'initialZoom is normalized to 0..1',
        );
@@ -146,6 +179,7 @@ class ScannerConfig {
   final CameraLensType lensType;
 
   /// Symbologies to decode. Empty means everything the platform supports.
+  /// An unmodifiable snapshot; later changes to the source list have no effect.
   final List<BarcodeFormat> formats;
 
   /// Turn the torch on when streaming starts.
@@ -217,8 +251,9 @@ class ScanResult {
 
   /// Bounding box in upright analysis-frame coordinates, when reported.
   ///
-  /// Preview widgets can map these to view coordinates once size/rotation
-  /// information lands; they are not widget coordinates.
+  /// Map to preview coordinates with [AnalysisMetrics] (or the
+  /// [ScanEvent.analysisFrame] that delivered the result); these are not
+  /// widget coordinates.
   final Rect? boundingBox;
 
   /// Corner points in upright analysis-frame coordinates, when reported.
@@ -274,6 +309,9 @@ class ScannerCapabilities {
     this.supportsZoom = false,
     this.minZoom = 1.0,
     this.maxZoom = 1.0,
+    this.cameraFacing,
+    this.cameraLensType,
+    this.cameraId,
   });
 
   /// The mechanism can hold a configured session whose repeating request is
@@ -301,6 +339,15 @@ class ScannerCapabilities {
 
   /// Maximum zoom ratio for the selected camera.
   final double maxZoom;
+
+  /// Facing actually resolved after fallback, when the platform reports it.
+  final CameraFacing? cameraFacing;
+
+  /// Lens class the resolved camera was selected for, when reported.
+  final CameraLensType? cameraLensType;
+
+  /// Platform camera id actually resolved, when reported.
+  final String? cameraId;
 }
 
 /// Thrown when the mechanism could not reach a requested state.

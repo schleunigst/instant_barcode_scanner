@@ -124,7 +124,7 @@ state (live stays live, parked stays parked, closed stays closed).
 import 'dart:ui' show Size;
 
 final scanner = InstantBarcodeScanner(
-  config: const ScannerConfig(
+  config: ScannerConfig(
     facing: CameraFacing.back,
     lensType: CameraLensType.wide,          // any | normal | wide | zoom
     formats: [BarcodeFormat.qrCode, BarcodeFormat.aztec],
@@ -159,8 +159,13 @@ scanner.zoomScale.addListener(() {
 The torch is a live-only control and goes off whenever streaming stops
 (park, close, background). If the selected camera has no flash,
 `torchState` is `unavailable`. Symbology filters are applied by the decoder;
-an empty `formats` list means every format ML Kit supports. Changing
-formats is a reconfiguration: dispose the controller and create a new one.
+an empty `formats` list means every format ML Kit supports. `ScannerConfig`
+takes an immutable snapshot of `formats`; changing formats is a
+reconfiguration: dispose the controller and create a new one.
+
+`capabilities` reports the camera actually resolved after fallback through
+`cameraFacing`, `cameraLensType`, and `cameraId`, so a device without the
+requested facing or lens is observable rather than silent.
 
 ### Decoding behavior
 
@@ -173,10 +178,14 @@ formats is a reconfiguration: dispose the controller and create a new one.
 
 `updateScanWindow(Rect)` restricts decoding to a normalized rectangle in the
 upright analysis frame (`Rect.fromLTRB(0.1, 0.1, 0.9, 0.9)`); a barcode is
-reported only when all of its detected corners fall inside. Pass `null` to
-clear it. `scanner.scanEvents` exposes the raw per-frame batches (with
-`corners`/`boundingBox` geometry); `scans` and `scan()` remain the flattened
-convenience views.
+reported only when its detected corners — or its bounding box when corners
+are unavailable — fall inside. Pass `null` to clear it. `scanner.scanEvents`
+exposes the raw per-frame batches (with `corners`/`boundingBox` geometry);
+`scans` and `scan()` remain the flattened convenience views.
+
+Barcode geometry is in upright analysis-frame pixels. `scanEvents` carries
+an `analysisFrame` when known, and `scanner.analysisMetrics` exposes the
+current `Size` and rotation for mapping boxes to preview coordinates.
 
 `analyzeImage(path)` decodes a still file through ML Kit without opening the
 camera or asking for permission, using the configured formats:
@@ -186,8 +195,9 @@ final results = await scanner.analyzeImage('/path/to/photo.jpg');
 ```
 
 `invertImage: true` inverts frame colors before decoding, for
-white-on-black symbols. It is Android-only and ignored elsewhere. The scan
-window does not apply to still images.
+white-on-black symbols, for both camera frames and `analyzeImage` stills. It
+is Android-only and ignored elsewhere. The scan window does not apply to
+still images.
 
 ### Preview
 

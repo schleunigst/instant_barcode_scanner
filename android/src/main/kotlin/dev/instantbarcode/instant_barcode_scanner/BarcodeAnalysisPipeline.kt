@@ -14,6 +14,7 @@ import android.view.Surface
 import com.google.mlkit.vision.barcode.BarcodeScanner
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.common.InputImage
+import dev.instantbarcode.instant_barcode_scanner.pigeon.PlatformAnalysisFrame
 import dev.instantbarcode.instant_barcode_scanner.pigeon.PlatformBarcode
 import dev.instantbarcode.instant_barcode_scanner.pigeon.PlatformBarcodeFormat
 import dev.instantbarcode.instant_barcode_scanner.pigeon.PlatformDetectionSpeed
@@ -36,6 +37,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * @param isLive reads the mechanism's streaming state; called on the analysis
  *   thread.
  * @param onBarcodes decoded barcode batches, main thread.
+ * @param onAnalysisFrame upright analysis-frame geometry, camera thread.
  */
 internal class BarcodeAnalysisPipeline(
     private val context: Context,
@@ -46,6 +48,7 @@ internal class BarcodeAnalysisPipeline(
     private val invertImage: Boolean,
     private val isLive: () -> Boolean,
     private val onBarcodes: (List<PlatformBarcode>) -> Unit,
+    private val onAnalysisFrame: (PlatformAnalysisFrame) -> Unit,
 ) {
     companion object {
         private const val TAG = "InstantScanner"
@@ -72,9 +75,7 @@ internal class BarcodeAnalysisPipeline(
     /** Restriction in normalized upright coordinates; null decodes everywhere. */
     @Volatile private var scanWindow: PlatformRect? = initialScanWindow
 
-    @Volatile private var imageRotation = 0
-    @Volatile private var frameWidth = 0
-    @Volatile private var frameHeight = 0
+    @Volatile private var analysisFrame = PlatformAnalysisFrame(0, 0, 0)
 
     fun setScanWindow(window: PlatformRect?) {
         scanWindow = window
@@ -121,9 +122,16 @@ internal class BarcodeAnalysisPipeline(
         )
         val newReader = ImageReader.newInstance(size.width, size.height, ImageFormat.YUV_420_888, 3)
         newReader.setOnImageAvailableListener({ rd -> onImageAvailable(rd, sensorRotation) }, handler)
-        imageRotation = sensorRotation
-        frameWidth = size.width
-        frameHeight = size.height
+        val rotation = sensorRotation % 360
+        val uprightWidth = if (rotation % 180 == 0) size.width else size.height
+        val uprightHeight = if (rotation % 180 == 0) size.height else size.width
+        val frame = PlatformAnalysisFrame(
+            uprightWidth.toLong(),
+            uprightHeight.toLong(),
+            rotation.toLong(),
+        )
+        analysisFrame = frame
+        onAnalysisFrame(frame)
         scannerInstance()
         reader = newReader
         readerCameraId = cameraId
@@ -137,6 +145,10 @@ internal class BarcodeAnalysisPipeline(
         generation++
         lastAnalysisAt = 0L
         lastRawValues = null
+        val frame = analysisFrame
+        if (frame.width > 0 && frame.height > 0) {
+            onAnalysisFrame(frame)
+        }
     }
 
     fun shutdown() {
@@ -292,13 +304,9 @@ internal class BarcodeAnalysisPipeline(
     }
 
     private fun isInsideWindow(barcode: PlatformBarcode, window: PlatformRect): Boolean {
-        val corners = barcode.corners
-        if (corners.isNullOrEmpty()) {
-            return false
-        }
-        val rotation = imageRotation
-        val width = if (rotation % 180 == 0) frameWidth else frameHeight
-        val height = if (rotation % 180 == 0) frameHeight else frameWidth
+        val frame = analysisFrame
+        val width = frame.width.toInt()
+        val height = frame.height.toInt()
         if (width <= 0 || height <= 0) {
             return false
         }
@@ -306,6 +314,11 @@ internal class BarcodeAnalysisPipeline(
         val top = window.top * height
         val right = window.right * width
         val bottom = window.bottom * height
-        return corners.all { it.x >= left && it.x <= right && it.y >= top && it.y <= bottom }
+        val corners = barcode.corners
+        if (!corners.isNullOrEmpty()) {
+            return corners.all { it.x >= left && it.x <= right && it.y >= top && it.y <= bottom }
+        }
+        val box = barcode.boundingBox ?: return false
+        return box.left >= left && box.top >= top && box.right <= right && box.bottom <= bottom
     }
 }

@@ -26,7 +26,7 @@ void main() {
       final platform = FakePlatform();
       final scanner = InstantBarcodeScanner(
         platform: platform,
-        config: const ScannerConfig(
+        config: ScannerConfig(
           facing: CameraFacing.front,
           lensType: CameraLensType.wide,
           formats: [BarcodeFormat.qrCode],
@@ -68,7 +68,7 @@ void main() {
       final platform = FakePlatform()..capabilitiesResult = _caps(torch: true);
       final scanner = InstantBarcodeScanner(
         platform: platform,
-        config: const ScannerConfig(torchEnabled: true),
+        config: ScannerConfig(torchEnabled: true),
       );
 
       unawaited(scanner.scan().then((_) {}, onError: (Object _) {}));
@@ -370,6 +370,73 @@ void main() {
       async.flushMicrotasks();
       expect(scanner.previewMetrics.value, isNull);
     });
+  });
+
+  test('analysis geometry delivered during a switch is preserved', () {
+    fakeAsync((async) {
+      final platform = FakePlatform();
+      final scanner = InstantBarcodeScanner(platform: platform);
+      const metrics = AnalysisMetrics(size: Size(800, 600), rotationDegrees: 0);
+
+      unawaited(scanner.warmUp());
+      async.flushMicrotasks();
+      expect(scanner.state, ScannerState.parked);
+
+      platform.switchHandler = (facing, lensType) async {
+        platform.emitAnalysisFrame(metrics);
+        return const ScannerStatus(state: ScannerState.parked);
+      };
+      unawaited(scanner.switchCamera(facing: CameraFacing.front));
+      async.flushMicrotasks();
+
+      expect(scanner.config.facing, CameraFacing.front);
+      expect(scanner.analysisMetrics.value, metrics);
+
+      unawaited(scanner.dispose());
+      async.flushMicrotasks();
+    });
+  });
+
+  test('analysis geometry reaches events and clears when closed', () {
+    fakeAsync((async) {
+      final platform = FakePlatform();
+      final scanner = InstantBarcodeScanner(platform: platform);
+      const metrics = AnalysisMetrics(
+        size: Size(640, 480),
+        rotationDegrees: 90,
+      );
+      final events = <ScanEvent>[];
+      scanner.scanEvents.listen(events.add);
+
+      platform.emitAnalysisFrame(metrics);
+      expect(scanner.analysisMetrics.value, metrics);
+
+      unawaited(scanner.scan().then((_) {}, onError: (Object _) {}));
+      async.flushMicrotasks();
+      platform.emit(const [_qr]);
+      async.flushMicrotasks();
+
+      expect(events.single.analysisFrame, metrics);
+
+      platform.emitStatus(const ScannerStatus(state: ScannerState.closed));
+      expect(scanner.analysisMetrics.value, isNull);
+
+      unawaited(scanner.dispose());
+      async.flushMicrotasks();
+    });
+  });
+
+  test('ScannerConfig snapshots formats against later mutation', () {
+    final formats = [BarcodeFormat.qrCode];
+    final config = ScannerConfig(formats: formats);
+
+    formats.add(BarcodeFormat.code128);
+
+    expect(config.formats, [BarcodeFormat.qrCode]);
+    expect(
+      () => config.formats.add(BarcodeFormat.aztec),
+      throwsUnsupportedError,
+    );
   });
 
   test('scanEvents carries the frame batch and scans flattens it', () {

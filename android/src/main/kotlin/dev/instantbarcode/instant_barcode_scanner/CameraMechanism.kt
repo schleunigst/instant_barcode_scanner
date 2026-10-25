@@ -14,6 +14,7 @@ import android.os.HandlerThread
 import android.os.Looper
 import android.util.Log
 import android.view.Surface
+import dev.instantbarcode.instant_barcode_scanner.pigeon.PlatformAnalysisFrame
 import dev.instantbarcode.instant_barcode_scanner.pigeon.PlatformBarcode
 import dev.instantbarcode.instant_barcode_scanner.pigeon.PlatformBarcodeFormat
 import dev.instantbarcode.instant_barcode_scanner.pigeon.PlatformDetectionSpeed
@@ -50,6 +51,7 @@ import dev.instantbarcode.instant_barcode_scanner.pigeon.PlatformState
  * @param onStateChanged confirmed stable-state snapshots, main thread.
  * @param onBarcodes decoded barcode batches, main thread. Only emitted while
  *   `live`.
+ * @param onAnalysisFrame upright analysis-frame geometry, camera thread.
  */
 internal class CameraMechanism(
     private val context: Context,
@@ -57,6 +59,7 @@ internal class CameraMechanism(
     private val onPreviewSize: (width: Int, height: Int, sensorOrientation: Int) -> Unit,
     private val onStateChanged: (PlatformSnapshot) -> Unit,
     private val onBarcodes: (List<PlatformBarcode>) -> Unit,
+    private val onAnalysisFrame: (PlatformAnalysisFrame) -> Unit,
     private val selection: () -> CameraSelection,
     formats: List<PlatformBarcodeFormat>,
     detectionSpeed: PlatformDetectionSpeed,
@@ -110,6 +113,7 @@ internal class CameraMechanism(
         invertImage = invertImage,
         isLive = { streaming },
         onBarcodes = onBarcodes,
+        onAnalysisFrame = onAnalysisFrame,
     )
 
     /** False once [dispose] has been called; no new work is accepted. */

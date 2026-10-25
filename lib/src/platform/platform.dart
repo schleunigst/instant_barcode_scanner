@@ -21,6 +21,7 @@ abstract class InstantBarcodeScannerPlatform {
     required void Function(ScannerStatus status) onState,
     required void Function(List<ScanResult> results) onBarcodes,
     required void Function(PreviewMetrics metrics) onPreviewMetrics,
+    required void Function(AnalysisMetrics metrics) onAnalysisFrame,
   });
 
   /// Apply the fixed controller configuration. Called before the first call
@@ -79,16 +80,19 @@ class MethodChannelInstantBarcodeScannerPlatform
   void Function(ScannerStatus status)? _onState;
   void Function(List<ScanResult> results)? _onBarcodes;
   void Function(PreviewMetrics metrics)? _onPreviewMetrics;
+  void Function(AnalysisMetrics metrics)? _onAnalysisFrame;
 
   @override
   void setEventHandlers({
     required void Function(ScannerStatus status) onState,
     required void Function(List<ScanResult> results) onBarcodes,
     required void Function(PreviewMetrics metrics) onPreviewMetrics,
+    required void Function(AnalysisMetrics metrics) onAnalysisFrame,
   }) {
     _onState = onState;
     _onBarcodes = onBarcodes;
     _onPreviewMetrics = onPreviewMetrics;
+    _onAnalysisFrame = onAnalysisFrame;
   }
 
   @override
@@ -116,6 +120,11 @@ class MethodChannelInstantBarcodeScannerPlatform
   @override
   void onBarcodes(List<pigeon.PlatformBarcode> barcodes) {
     _onBarcodes?.call(barcodes.map(_resultFromPigeon).toList());
+  }
+
+  @override
+  void onAnalysisFrame(pigeon.PlatformAnalysisFrame frame) {
+    _onAnalysisFrame?.call(_analysisFrameFromPigeon(frame));
   }
 
   @override
@@ -150,6 +159,9 @@ class MethodChannelInstantBarcodeScannerPlatform
       supportsZoom: caps.supportsZoom,
       minZoom: caps.minZoom,
       maxZoom: caps.maxZoom,
+      cameraFacing: _facingFromPigeon(caps.cameraFacing),
+      cameraLensType: _lensTypeFromPigeon(caps.cameraLensType),
+      cameraId: caps.cameraId,
     );
   }
 
@@ -193,6 +205,30 @@ class MethodChannelInstantBarcodeScannerPlatform
 
   @override
   Future<void> dispose() => _hostApi.dispose();
+}
+
+AnalysisMetrics _analysisFrameFromPigeon(pigeon.PlatformAnalysisFrame frame) {
+  return AnalysisMetrics(
+    size: Size(frame.width.toDouble(), frame.height.toDouble()),
+    rotationDegrees: frame.rotationDegrees,
+  );
+}
+
+CameraFacing _facingFromPigeon(pigeon.PlatformCameraFacing facing) {
+  return switch (facing) {
+    pigeon.PlatformCameraFacing.back => CameraFacing.back,
+    pigeon.PlatformCameraFacing.front => CameraFacing.front,
+    pigeon.PlatformCameraFacing.external => CameraFacing.external,
+  };
+}
+
+CameraLensType _lensTypeFromPigeon(pigeon.PlatformCameraLensType lensType) {
+  return switch (lensType) {
+    pigeon.PlatformCameraLensType.any => CameraLensType.any,
+    pigeon.PlatformCameraLensType.normal => CameraLensType.normal,
+    pigeon.PlatformCameraLensType.wide => CameraLensType.wide,
+    pigeon.PlatformCameraLensType.zoom => CameraLensType.zoom,
+  };
 }
 
 pigeon.PlatformCameraFacing _facingToPigeon(CameraFacing facing) {

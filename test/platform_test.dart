@@ -101,6 +101,9 @@ void main() {
         supportsZoom: false,
         minZoom: 1,
         maxZoom: 1,
+        cameraFacing: pigeon.PlatformCameraFacing.back,
+        cameraLensType: pigeon.PlatformCameraLensType.any,
+        cameraId: '0',
       ),
     );
 
@@ -110,6 +113,33 @@ void main() {
     final caps = await platform.getCapabilities();
     expect(caps.supportsPark, isFalse);
     expect(caps.supportsTrueClose, isTrue);
+    expect(caps.cameraFacing, CameraFacing.back);
+    expect(caps.cameraLensType, CameraLensType.any);
+    expect(caps.cameraId, '0');
+  });
+
+  test('analysis frames map to upright size and rotation', () async {
+    final platform = MethodChannelInstantBarcodeScannerPlatform();
+    AnalysisMetrics? received;
+    platform.setEventHandlers(
+      onState: (_) {},
+      onBarcodes: (_) {},
+      onPreviewMetrics: (_) {},
+      onAnalysisFrame: (metrics) => received = metrics,
+    );
+
+    await deliverFlutterApi('onAnalysisFrame', <Object?>[
+      pigeon.PlatformAnalysisFrame(
+        width: 640,
+        height: 480,
+        rotationDegrees: 90,
+      ),
+    ]);
+
+    expect(
+      received,
+      const AnalysisMetrics(size: Size(640, 480), rotationDegrees: 90),
+    );
   });
 
   test('state events from the platform reach the registered sink', () async {
@@ -119,6 +149,7 @@ void main() {
       onState: (s) => received = s,
       onBarcodes: (_) {},
       onPreviewMetrics: (_) {},
+      onAnalysisFrame: (_) {},
     );
 
     await deliverFlutterApi('onStateChanged', <Object?>[
@@ -140,6 +171,7 @@ void main() {
       onState: (_) {},
       onBarcodes: (results) => received = results,
       onPreviewMetrics: (_) {},
+      onAnalysisFrame: (_) {},
     );
 
     final raw = Uint8List.fromList([0x00, 0xFF, 0x80, 0x0A]);
@@ -244,6 +276,9 @@ void main() {
           supportsZoom: true,
           minZoom: 1,
           maxZoom: 8,
+          cameraFacing: pigeon.PlatformCameraFacing.back,
+          cameraLensType: pigeon.PlatformCameraLensType.any,
+          cameraId: '0',
         ),
       );
       mockHost('configure', (args) async => null);

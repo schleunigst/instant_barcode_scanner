@@ -466,6 +466,64 @@ class PlatformBarcode {
   }
 }
 
+/// Geometry of the analysis frames barcode coordinates refer to.
+class PlatformAnalysisFrame {
+  PlatformAnalysisFrame({
+    required this.width,
+    required this.height,
+    required this.rotationDegrees,
+  });
+
+  /// Width of the upright analysis frame in pixels.
+  int width;
+
+  /// Height of the upright analysis frame in pixels.
+  int height;
+
+  /// Clockwise rotation applied to the camera buffer to make it upright.
+  int rotationDegrees;
+
+  List<Object?> _toList() {
+    return <Object?>[width, height, rotationDegrees];
+  }
+
+  Object encode() {
+    return _toList();
+  }
+
+  static PlatformAnalysisFrame decode(Object result) {
+    result as List<Object?>;
+    return PlatformAnalysisFrame(
+      width: result[0]! as int,
+      height: result[1]! as int,
+      rotationDegrees: result[2]! as int,
+    );
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  bool operator ==(Object other) {
+    if (other is! PlatformAnalysisFrame || other.runtimeType != runtimeType) {
+      return false;
+    }
+    if (identical(this, other)) {
+      return true;
+    }
+    return _deepEquals(width, other.width) &&
+        _deepEquals(height, other.height) &&
+        _deepEquals(rotationDegrees, other.rotationDegrees);
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  int get hashCode => _deepHash(<Object?>[runtimeType, ..._toList()]);
+
+  @override
+  String toString() {
+    return 'PlatformAnalysisFrame(width: $width, height: $height, rotationDegrees: $rotationDegrees)';
+  }
+}
+
 /// A confirmed mechanism state.
 class PlatformSnapshot {
   PlatformSnapshot({required this.state, this.errorCode, this.errorMessage});
@@ -526,6 +584,9 @@ class PlatformCapabilities {
     required this.supportsZoom,
     required this.minZoom,
     required this.maxZoom,
+    required this.cameraFacing,
+    required this.cameraLensType,
+    required this.cameraId,
   });
 
   /// Session config can be kept parked (device open, session configured,
@@ -547,6 +608,15 @@ class PlatformCapabilities {
   /// Maximum zoom ratio for the selected camera.
   double maxZoom;
 
+  /// Facing actually resolved after fallback (normally [PlatformScannerConfig.facing]).
+  PlatformCameraFacing cameraFacing;
+
+  /// Lens class the resolved camera was selected for.
+  PlatformCameraLensType cameraLensType;
+
+  /// Platform camera id actually resolved; diagnostics and exact selection.
+  String cameraId;
+
   List<Object?> _toList() {
     return <Object?>[
       supportsPark,
@@ -555,6 +625,9 @@ class PlatformCapabilities {
       supportsZoom,
       minZoom,
       maxZoom,
+      cameraFacing,
+      cameraLensType,
+      cameraId,
     ];
   }
 
@@ -571,6 +644,9 @@ class PlatformCapabilities {
       supportsZoom: result[3]! as bool,
       minZoom: result[4]! as double,
       maxZoom: result[5]! as double,
+      cameraFacing: result[6]! as PlatformCameraFacing,
+      cameraLensType: result[7]! as PlatformCameraLensType,
+      cameraId: result[8]! as String,
     );
   }
 
@@ -588,7 +664,10 @@ class PlatformCapabilities {
         _deepEquals(supportsTorch, other.supportsTorch) &&
         _deepEquals(supportsZoom, other.supportsZoom) &&
         _deepEquals(minZoom, other.minZoom) &&
-        _deepEquals(maxZoom, other.maxZoom);
+        _deepEquals(maxZoom, other.maxZoom) &&
+        _deepEquals(cameraFacing, other.cameraFacing) &&
+        _deepEquals(cameraLensType, other.cameraLensType) &&
+        _deepEquals(cameraId, other.cameraId);
   }
 
   @override
@@ -597,7 +676,7 @@ class PlatformCapabilities {
 
   @override
   String toString() {
-    return 'PlatformCapabilities(supportsPark: $supportsPark, supportsTrueClose: $supportsTrueClose, supportsTorch: $supportsTorch, supportsZoom: $supportsZoom, minZoom: $minZoom, maxZoom: $maxZoom)';
+    return 'PlatformCapabilities(supportsPark: $supportsPark, supportsTrueClose: $supportsTrueClose, supportsTorch: $supportsTorch, supportsZoom: $supportsZoom, minZoom: $minZoom, maxZoom: $maxZoom, cameraFacing: $cameraFacing, cameraLensType: $cameraLensType, cameraId: $cameraId)';
   }
 }
 
@@ -701,14 +780,17 @@ class _PigeonCodec extends StandardMessageCodec {
     } else if (value is PlatformBarcode) {
       buffer.putUint8(138);
       writeValue(buffer, value.encode());
-    } else if (value is PlatformSnapshot) {
+    } else if (value is PlatformAnalysisFrame) {
       buffer.putUint8(139);
       writeValue(buffer, value.encode());
-    } else if (value is PlatformCapabilities) {
+    } else if (value is PlatformSnapshot) {
       buffer.putUint8(140);
       writeValue(buffer, value.encode());
-    } else if (value is PlatformPreviewMetrics) {
+    } else if (value is PlatformCapabilities) {
       buffer.putUint8(141);
+      writeValue(buffer, value.encode());
+    } else if (value is PlatformPreviewMetrics) {
+      buffer.putUint8(142);
       writeValue(buffer, value.encode());
     } else {
       super.writeValue(buffer, value);
@@ -745,10 +827,12 @@ class _PigeonCodec extends StandardMessageCodec {
       case 138:
         return PlatformBarcode.decode(readValue(buffer)!);
       case 139:
-        return PlatformSnapshot.decode(readValue(buffer)!);
+        return PlatformAnalysisFrame.decode(readValue(buffer)!);
       case 140:
-        return PlatformCapabilities.decode(readValue(buffer)!);
+        return PlatformSnapshot.decode(readValue(buffer)!);
       case 141:
+        return PlatformCapabilities.decode(readValue(buffer)!);
+      case 142:
         return PlatformPreviewMetrics.decode(readValue(buffer)!);
       default:
         return super.readValueOfType(type, buffer);
@@ -1007,11 +1091,15 @@ class ScannerHostApi {
 abstract class ScannerFlutterApi {
   static const MessageCodec<Object?> pigeonChannelCodec = _PigeonCodec();
 
-  /// Every confirmed (stable) state change plus unexpected failures.
+  /// Every confirmed state change, including transient `opening`/`closing`
+  /// snapshots and unexpected failures.
   void onStateChanged(PlatformSnapshot snapshot);
 
   /// A batch of barcodes decoded while `live`.
   void onBarcodes(List<PlatformBarcode> barcodes);
+
+  /// The analysis frame's upright size/rotation was established or changed.
+  void onAnalysisFrame(PlatformAnalysisFrame frame);
 
   /// The preview texture's buffer size and display transform changed.
   void onPreviewMetrics(PlatformPreviewMetrics metrics);
@@ -1064,6 +1152,32 @@ abstract class ScannerFlutterApi {
               .cast<PlatformBarcode>();
           try {
             api.onBarcodes(arg_barcodes);
+            return wrapResponse(empty: true);
+          } on PlatformException catch (e) {
+            return wrapResponse(error: e);
+          } catch (e) {
+            return wrapResponse(
+              error: PlatformException(code: 'error', message: e.toString()),
+            );
+          }
+        });
+      }
+    }
+    {
+      final pigeonVar_channel = BasicMessageChannel<Object?>(
+        'dev.flutter.pigeon.instant_barcode_scanner.ScannerFlutterApi.onAnalysisFrame$messageChannelSuffix',
+        pigeonChannelCodec,
+        binaryMessenger: binaryMessenger,
+      );
+      if (api == null) {
+        pigeonVar_channel.setMessageHandler(null);
+      } else {
+        pigeonVar_channel.setMessageHandler((Object? message) async {
+          final List<Object?> args = message! as List<Object?>;
+          final PlatformAnalysisFrame arg_frame =
+              args[0]! as PlatformAnalysisFrame;
+          try {
+            api.onAnalysisFrame(arg_frame);
             return wrapResponse(empty: true);
           } on PlatformException catch (e) {
             return wrapResponse(error: e);

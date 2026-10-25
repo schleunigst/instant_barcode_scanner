@@ -113,6 +113,26 @@ final scanner = InstantBarcodeScanner(
 );
 ```
 
+### Session lifecycle
+
+`ScanSession` wraps the scanner in explicit, idempotent lifecycle calls for
+hosts that map screen or route lifecycle onto the camera:
+
+```dart
+final session = ScanSession();
+
+await session.start();     // warm: parked, not streaming
+final result = await session.scan();
+await session.pause();     // park (or close where park is unsupported)
+await session.resume();    // warm again
+await session.dispose();   // idempotent
+```
+
+`pause()` before `start()` does nothing, and pausing after the idle policy
+has already closed the camera does not reopen it. `scan()` starts or resumes
+the session when needed. The underlying `InstantBarcodeScanner` remains
+available as `session.scanner` for controls the facade does not wrap.
+
 ### Camera configuration and controls
 
 Camera choice, formats, and initial torch/zoom are fixed when the controller

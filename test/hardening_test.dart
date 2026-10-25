@@ -99,6 +99,36 @@ void main() {
       });
     });
 
+    test('a platform without true close refuses a handoff', () {
+      fakeAsync((async) {
+        final platform = FakePlatform()
+          ..capabilitiesResult = const ScannerCapabilities(
+            supportsPark: true,
+            supportsTrueClose: false,
+          );
+        final scanner = InstantBarcodeScanner(platform: platform);
+
+        Object? error;
+        unawaited(
+          scanner.beginNfcHandoff().catchError((Object e) {
+            error = e;
+          }),
+        );
+        async.flushMicrotasks();
+
+        expect(error, isA<ScannerException>());
+        expect(
+          (error! as ScannerException).status.errorCode,
+          'true_close_unsupported',
+        );
+        expect(platform.drives, isEmpty);
+        expect(scanner.state, ScannerState.closed);
+
+        unawaited(scanner.dispose());
+        async.flushMicrotasks();
+      });
+    });
+
     test('a second beginNfcHandoff does not drop the resume target', () {
       fakeAsync((async) {
         final platform = FakePlatform();
@@ -252,6 +282,61 @@ void main() {
 
         expect(error, isA<StateError>());
         expect(scanner.state, ScannerState.closed);
+      });
+    });
+
+    test('a closing event fails the pending scan promptly', () {
+      fakeAsync((async) {
+        final platform = FakePlatform();
+        final scanner = InstantBarcodeScanner(platform: platform);
+
+        Object? error;
+        unawaited(
+          scanner
+              .scan(timeout: const Duration(seconds: 30))
+              .then((_) {}, onError: (Object e) => error = e),
+        );
+        async.flushMicrotasks();
+
+        platform.emitStatus(const ScannerStatus(state: ScannerState.closing));
+        async.flushMicrotasks();
+
+        expect(error, isA<StateError>());
+        expect(scanner.state, ScannerState.closing);
+
+        platform.emitStatus(const ScannerStatus(state: ScannerState.closed));
+        async.flushMicrotasks();
+        expect(scanner.state, ScannerState.closed);
+
+        unawaited(scanner.dispose());
+        async.flushMicrotasks();
+      });
+    });
+
+    test('a barcode delivered after park is not streamed', () {
+      fakeAsync((async) {
+        final platform = FakePlatform();
+        final scanner = InstantBarcodeScanner(platform: platform);
+        final streamed = <ScanResult>[];
+        scanner.scans.listen(streamed.add);
+        const qr = ScanResult(format: BarcodeFormat.qrCode, text: 'hello');
+        const aztec = ScanResult(format: BarcodeFormat.aztec, text: 'other');
+
+        unawaited(scanner.warmUp());
+        async.flushMicrotasks();
+        platform.emitStatus(const ScannerStatus(state: ScannerState.live));
+        platform.emit([qr]);
+        async.flushMicrotasks();
+        expect(streamed, [qr]);
+
+        unawaited(scanner.park());
+        async.flushMicrotasks();
+        platform.emit([aztec]);
+        async.flushMicrotasks();
+
+        expect(streamed, [qr]);
+        unawaited(scanner.dispose());
+        async.flushMicrotasks();
       });
     });
 

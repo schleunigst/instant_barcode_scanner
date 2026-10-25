@@ -278,7 +278,8 @@ abstract class ScannerHostApi {
 /// Events from the platform to Dart.
 @FlutterApi()
 abstract class ScannerFlutterApi {
-  /// Every confirmed (stable) state change plus unexpected failures.
+  /// Every confirmed state change, including transient `opening`/`closing`
+  /// snapshots and unexpected failures.
   void onStateChanged(PlatformSnapshot snapshot);
 
   /// A batch of barcodes decoded while `live`.

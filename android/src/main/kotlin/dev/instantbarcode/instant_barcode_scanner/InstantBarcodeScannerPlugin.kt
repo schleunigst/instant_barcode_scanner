@@ -158,8 +158,7 @@ class InstantBarcodeScannerPlugin : FlutterPlugin, ActivityAware, ScannerHostApi
         registry = null
         applicationContext?.unregisterComponentCallbacks(configurationCallbacks)
         applicationContext = null
-        permissionResume?.invoke(false)
-        permissionResume = null
+        cancelPermissionRequest()
         scope.cancel()
     }
 
@@ -334,7 +333,10 @@ class InstantBarcodeScannerPlugin : FlutterPlugin, ActivityAware, ScannerHostApi
     }
 
     override suspend fun setZoom(ratio: Double) {
-        val current = mechanism
+        // Zoom is a persistent camera setting. Accept it before the first
+        // drive and let the mechanism apply it when the device opens; the
+        // controller legitimately calls this while closed.
+        val current = mechanism ?: ensureMechanism()
             ?: throw FlutterError("not_running", "the scanner is not open", null)
         val outcome = mutex.withLock {
             suspendCancellableCoroutine<Pair<Double?, String?>> { continuation ->
@@ -398,24 +400,30 @@ class InstantBarcodeScannerPlugin : FlutterPlugin, ActivityAware, ScannerHostApi
         }
     }
 
-    override suspend fun dispose() = mutex.withLock {
-        val current = mechanism
-        mechanism = null
-        if (current != null) {
-            suspendCancellableCoroutine { continuation ->
-                current.dispose {
-                    if (continuation.isActive) {
-                        continuation.resume(Unit)
+    override suspend fun dispose() {
+        // A pending runtime-permission prompt must not wedge the serialized
+        // camera queue: dispose would otherwise wait behind the drive that is
+        // still waiting for the user.
+        cancelPermissionRequest()
+        mutex.withLock {
+            val current = mechanism
+            mechanism = null
+            if (current != null) {
+                suspendCancellableCoroutine { continuation ->
+                    current.dispose {
+                        if (continuation.isActive) {
+                            continuation.resume(Unit)
+                        }
                     }
                 }
             }
+            // The texture is engine-scoped, not controller-scoped: a newer
+            // controller's warm-up may have fetched its id moments before this
+            // dispose landed in the call order (screen-switch spam does exactly
+            // that). Releasing it here would fail the newer drive with
+            // `configure_failed: preview surface is not available`; it is
+            // released when the engine detaches instead.
         }
-        // The texture is engine-scoped, not controller-scoped: a newer
-        // controller's warm-up may have fetched its id moments before this
-        // dispose landed in the call order (screen-switch spam does exactly
-        // that). Releasing it here would fail the newer drive with
-        // `configure_failed: preview surface is not available`; it is
-        // released when the engine detaches instead.
     }
 
     private fun ensureMechanism(): CameraMechanism? {
@@ -454,6 +462,13 @@ class InstantBarcodeScannerPlugin : FlutterPlugin, ActivityAware, ScannerHostApi
 
     // --- Permissions -------------------------------------------------------
 
+    /** Resolve a pending prompt as denied when its host can no longer show it. */
+    private fun cancelPermissionRequest() {
+        val resume = permissionResume
+        permissionResume = null
+        resume?.invoke(false)
+    }
+
     private suspend fun ensureCameraPermission(): Boolean {
         val context = applicationContext ?: return false
         if (context.checkSelfPermission(Manifest.permission.CAMERA) ==
@@ -462,13 +477,21 @@ class InstantBarcodeScannerPlugin : FlutterPlugin, ActivityAware, ScannerHostApi
             return true
         }
         val host = activity ?: return false
+        if (permissionResume != null) {
+            // Camera drives are serialized by the controller; a second
+            // concurrent request would overwrite the first waiter.
+            return false
+        }
         return suspendCancellableCoroutine { continuation ->
             permissionResume = { granted ->
+                permissionResume = null
                 if (continuation.isActive) {
                     continuation.resume(granted)
                 }
             }
-            continuation.invokeOnCancellation { permissionResume = null }
+            continuation.invokeOnCancellation {
+                permissionResume = null
+            }
             Handler(Looper.getMainLooper()).post {
                 if (continuation.isActive) {
                     host.requestPermissions(
@@ -547,6 +570,7 @@ class InstantBarcodeScannerPlugin : FlutterPlugin, ActivityAware, ScannerHostApi
     }
 
     private fun detachActivity() {
+        cancelPermissionRequest()
         activityBinding?.removeRequestPermissionsResultListener(permissionListener)
         activityBinding = null
         val callbacks = lifecycleCallbacks

@@ -70,6 +70,9 @@ internal class CameraMechanism(
 ) {
     companion object {
         private const val TAG = "InstantScanner"
+
+        /** A camera step that never calls back must not hang the controller. */
+        private const val STEP_TIMEOUT_MS = 5_000L
     }
 
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -126,6 +129,7 @@ internal class CameraMechanism(
     )
 
     private var activeStep = Step.NONE
+    private var stepTimeout: Runnable? = null
     private var requested: Target? = null
     private var requestedSeq = 0L
     private var commandSeq = 0L
@@ -347,6 +351,9 @@ internal class CameraMechanism(
         val target = requested ?: return
 
         if (!target.device) {
+            if (device != null || session != null) {
+                emitTransient(PlatformState.CLOSING)
+            }
             stopRepeating()
             closeSession()
             closeDevice()
@@ -355,15 +362,21 @@ internal class CameraMechanism(
         }
 
         if (device == null) {
+            emitTransient(PlatformState.OPENING)
             activeStep = Step.OPENING
             val seq = requestedSeq
-            openDevice { ok, message ->
-                activeStep = Step.NONE
+            scheduleStepTimeout(Step.OPENING, seq)
+            openDevice(seq) { ok, message ->
+                val current = activeStep == Step.OPENING && requestedSeq == seq
+                cancelStepTimeout()
+                if (activeStep == Step.OPENING) {
+                    activeStep = Step.NONE
+                }
                 when {
                     shuttingDown || !accepting -> pump()
+                    !current -> pump()
                     ok -> pump()
                     requested == null -> Unit
-                    requestedSeq != seq -> pump()
                     else -> abort("open_failed", message ?: "camera device failed to open")
                 }
             }
@@ -380,13 +393,18 @@ internal class CameraMechanism(
         if (session == null) {
             activeStep = Step.CONFIGURING
             val seq = requestedSeq
+            scheduleStepTimeout(Step.CONFIGURING, seq)
             configureSession { ok, message ->
-                activeStep = Step.NONE
+                val current = activeStep == Step.CONFIGURING && requestedSeq == seq
+                cancelStepTimeout()
+                if (activeStep == Step.CONFIGURING) {
+                    activeStep = Step.NONE
+                }
                 when {
                     shuttingDown || !accepting -> pump()
+                    !current -> pump()
                     ok -> pump()
                     requested == null -> Unit
-                    requestedSeq != seq -> pump()
                     else -> abort("configure_failed", message ?: "capture session failed to configure")
                 }
             }
@@ -418,6 +436,7 @@ internal class CameraMechanism(
      * camera thread.
      */
     private fun abort(code: String, message: String?) {
+        cancelStepTimeout()
         stopRepeating()
         closeSession()
         closeDevice()
@@ -455,6 +474,42 @@ internal class CameraMechanism(
         }
     }
 
+    private fun scheduleStepTimeout(step: Step, seq: Long) {
+        cancelStepTimeout()
+        val timeout = Runnable {
+            if (activeStep != step || requestedSeq != seq) {
+                return@Runnable
+            }
+            activeStep = Step.NONE
+            if (shuttingDown) {
+                shutdownOnCameraThread()
+                return@Runnable
+            }
+            val code = if (step == Step.OPENING) "open_timeout" else "configure_timeout"
+            val message = if (step == Step.OPENING) {
+                "camera device did not open in time"
+            } else {
+                "capture session did not configure in time"
+            }
+            abort(code, message)
+        }
+        stepTimeout = timeout
+        cameraHandlerFor().postDelayed(timeout, STEP_TIMEOUT_MS)
+    }
+
+    private fun cancelStepTimeout() {
+        val timeout = stepTimeout ?: return
+        stepTimeout = null
+        handler?.removeCallbacks(timeout)
+    }
+
+    /** Transient states are informative; callbacks stay on the main thread. */
+    private fun emitTransient(state: PlatformState) {
+        mainHandler.post {
+            emitChanged(PlatformSnapshot(state, null, null))
+        }
+    }
+
     private fun emitChanged(snapshot: PlatformSnapshot) {
         val previous = lastEmitted
         if (previous != null &&
@@ -474,6 +529,7 @@ internal class CameraMechanism(
             return
         }
         disposed = true
+        cancelStepTimeout()
         stopRepeating()
         closeSession()
         closeDevice()
@@ -485,7 +541,7 @@ internal class CameraMechanism(
         mainHandler.post { onDisposedCallback?.invoke() }
     }
 
-    private fun openDevice(done: (Boolean, String?) -> Unit) {
+    private fun openDevice(seq: Long, done: (Boolean, String?) -> Unit) {
         val manager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
         val camId = try {
             resolveCameraId(manager, selection())
@@ -534,12 +590,19 @@ internal class CameraMechanism(
                 camId,
                 object : CameraDevice.StateCallback() {
                     override fun onOpened(dev: CameraDevice) {
-                        if (generation != selectionGeneration) {
+                        if (generation != selectionGeneration ||
+                            shuttingDown ||
+                            !accepting ||
+                            requested == null ||
+                            requestedSeq != seq
+                        ) {
+                            // A timed-out, superseded or disposed open must
+                            // not leave a device behind that no one owns.
                             try {
                                 dev.close()
                             } catch (_: Throwable) {
                             }
-                            done(false, "camera selection changed while opening")
+                            done(false, "camera open was superseded")
                             return
                         }
                         device = dev

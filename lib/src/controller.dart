@@ -532,7 +532,8 @@ class InstantBarcodeScanner {
   ///
   /// Completes only once the platform confirms the device is closed and the
   /// camera HAL reports it available again, so it is safe to open an NFC
-  /// reader right after the await.
+  /// reader right after the await. Throws `true_close_unsupported` before
+  /// touching the camera when the platform cannot guarantee that release.
   ///
   /// Reentrant: calling it while a handoff is already active returns once
   /// that handoff is confirmed, without changing its resume target.
@@ -555,6 +556,19 @@ class InstantBarcodeScanner {
     _activeScan = null;
     final done = _enqueue(() async {
       _ensureUsable();
+      final caps = await capabilities;
+      _ensureUsable();
+      if (!caps.supportsTrueClose) {
+        throw ScannerException(
+          ScannerStatus(
+            state: state,
+            errorCode: 'true_close_unsupported',
+            errorMessage:
+                'this platform cannot guarantee the camera is released before '
+                'an NFC handoff',
+          ),
+        );
+      }
       await _confirm(ScannerState.closed);
     });
     // On failure the handoff did not happen: put the scanner back on the idle
@@ -731,7 +745,9 @@ class InstantBarcodeScanner {
       if (status.hasError) {
         _failPendingScan(ScannerException(status));
         _activeScan = null;
-      } else if (status.state == ScannerState.closed && !_handoff) {
+      } else if ((status.state == ScannerState.closed ||
+              status.state == ScannerState.closing) &&
+          !_handoff) {
         // The camera went away underneath the scan (backgrounded activity,
         // external close). Report it now instead of waiting for the timeout.
         _failPendingScan(
@@ -789,7 +805,12 @@ class InstantBarcodeScanner {
   }
 
   void _handleBarcodes(List<ScanResult> results) {
-    if (results.isEmpty || _disposed || _handoff) {
+    if (results.isEmpty ||
+        _disposed ||
+        _handoff ||
+        state != ScannerState.live) {
+      // Native already tags decoded frames with their capture generation, but
+      // a delivered event can still race a park/close. Only live reads count.
       return;
     }
     final pending = _pendingScan;

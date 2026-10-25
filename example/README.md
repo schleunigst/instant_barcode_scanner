@@ -1,17 +1,34 @@
-# instant_barcode_scanner_example
+# instant_barcode_scanner example
 
-Demonstrates how to use the instant_barcode_scanner plugin.
+A small Android demo of the scanner's app-session lifecycle and controls.
 
-## Getting Started
+The screen warms the scanner when it opens, scans on demand, and shows the last
+decoded barcode, the live scanner state, and the number of streamed results. It
+also exercises camera switching, torch, normalized zoom, a simulated NFC
+handoff, and the preview overlay/placeholder builders.
 
-This project is a starting point for a Flutter application.
+## Run
 
-A few resources to get you started if this is your first Flutter project:
+```sh
+flutter pub get
+flutter run
+```
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+The demo declares the camera permission and requests it before warming up.
+The plugin also requests it on the first camera drive, so apps that do not ask
+up front still get the correct permission-denied state.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Tests
+
+```sh
+flutter analyze
+flutter test
+flutter test integration_test -d <device>
+```
+
+Integration tests need a camera. Grant the permission before running them on a
+fresh emulator install:
+
+```sh
+adb shell pm grant dev.instantbarcode.instant_barcode_scanner_example android.permission.CAMERA
+```

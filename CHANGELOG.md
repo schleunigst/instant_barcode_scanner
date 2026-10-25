@@ -1,5 +1,33 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Camera configuration: facing, lens preference, barcode formats, initial
+  torch, initial zoom, and analysis/preview resolution.
+- Live camera controls: `switchCamera`, `setTorch`/`toggleTorch`, and
+  normalized `setZoom`/`resetZoom`, with `torchState` and `zoomScale`
+  listenables and capability reporting.
+- Detection policies (`noDuplicates`, `normal`, `unrestricted`) with a
+  configurable timeout.
+- Per-frame barcode batches through `scanEvents`, plus `displayValue`,
+  `BarcodeType`, `boundingBox`, and `corners` on results.
+- Normalized, rotation-aware scan windows via `updateScanWindow`.
+- Still-image decoding through `analyzeImage` without opening the camera.
+- `invertImage` support for white-on-black symbols.
+- Preview fit, overlay and placeholder builders, upright rotation, and
+  front-camera mirroring in `InstantBarcodeScannerView`.
+
+### Fixed
+
+- Camera permission is requested at runtime and denial reports
+  `permission_denied`.
+- Lifecycle and concurrency hardening around dispose, scan cancellation, NFC
+  handoffs, camera switches, and queued torch/zoom commands.
+- Truthful-close availability watch ordering, camera-scoped analysis targets,
+  ML Kit client initialization races, and image-reader teardown.
+
 ## 0.1.0
 
 Initial development version.

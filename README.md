@@ -277,7 +277,7 @@ and requires Play Services on the device.
 
 The package is verified on three levels, and all of it is in this repository:
 
-- `flutter test` runs the Dart suite (77 tests): the state machine, idle
+- `flutter test` runs the Dart suite (80 tests): the state machine, idle
   policy, handoff and failure paths against a fake with real async semantics,
   command serialization/races, config plumbing, torch/zoom/switch controls,
   detection policy/window/still-image behavior,

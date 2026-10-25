@@ -7,8 +7,16 @@ import android.content.ComponentCallbacks
 import android.content.Context
 import android.content.pm.PackageManager
 import android.content.res.Configuration
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.ColorMatrix
+import android.graphics.ColorMatrixColorFilter
+import android.graphics.Matrix
+import android.graphics.Paint
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
+import android.media.ExifInterface
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
@@ -18,6 +26,7 @@ import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
 import dev.instantbarcode.instant_barcode_scanner.pigeon.FlutterError
+import dev.instantbarcode.instant_barcode_scanner.pigeon.PlatformAnalysisFrame
 import dev.instantbarcode.instant_barcode_scanner.pigeon.PlatformBarcode
 import dev.instantbarcode.instant_barcode_scanner.pigeon.PlatformCameraFacing
 import dev.instantbarcode.instant_barcode_scanner.pigeon.PlatformCameraLensType
@@ -194,8 +203,8 @@ class InstantBarcodeScannerPlugin : FlutterPlugin, ActivityAware, ScannerHostApi
                 null,
             )
         val manager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
-        val cameraId = try {
-            resolveCameraId(manager, selection)
+        val resolved = try {
+            resolveCamera(manager, selection)
         } catch (t: Throwable) {
             throw FlutterError(
                 "camera_unavailable",
@@ -203,6 +212,7 @@ class InstantBarcodeScannerPlugin : FlutterPlugin, ActivityAware, ScannerHostApi
                 t.message,
             )
         }
+        val cameraId = resolved.id
         val characteristics = manager.getCameraCharacteristics(cameraId)
         val zoom = zoomInfo(characteristics)
         val hasFlash =
@@ -214,6 +224,9 @@ class InstantBarcodeScannerPlugin : FlutterPlugin, ActivityAware, ScannerHostApi
             supportsZoom = zoom.max > zoom.min,
             minZoom = zoom.min,
             maxZoom = zoom.max,
+            cameraFacing = resolved.facing,
+            cameraLensType = resolved.lensType,
+            cameraId = cameraId,
         )
     }
 
@@ -373,7 +386,11 @@ class InstantBarcodeScannerPlugin : FlutterPlugin, ActivityAware, ScannerHostApi
             ?: BarcodeScanning.getClient()
         try {
             val image = withContext(Dispatchers.IO) {
-                InputImage.fromFilePath(context, Uri.fromFile(file))
+                if (scannerConfig.invertImage) {
+                    invertedInputImage(file)
+                } else {
+                    InputImage.fromFilePath(context, Uri.fromFile(file))
+                }
             }
             val barcodes = suspendCancellableCoroutine<List<Barcode>> { continuation ->
                 scanner.process(image)
@@ -398,6 +415,74 @@ class InstantBarcodeScannerPlugin : FlutterPlugin, ActivityAware, ScannerHostApi
         } finally {
             scanner.close()
         }
+    }
+
+    private fun invertedInputImage(file: File): InputImage {
+        val decoded = BitmapFactory.decodeFile(file.absolutePath)
+            ?: throw IllegalArgumentException("could not decode image")
+        val orientation = try {
+            ExifInterface(file.absolutePath).getAttributeInt(
+                ExifInterface.TAG_ORIENTATION,
+                ExifInterface.ORIENTATION_NORMAL,
+            )
+        } catch (_: Throwable) {
+            ExifInterface.ORIENTATION_NORMAL
+        }
+        val matrix = Matrix()
+        when (orientation) {
+            ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> matrix.setScale(-1f, 1f)
+            ExifInterface.ORIENTATION_ROTATE_180 -> matrix.setRotate(180f)
+            ExifInterface.ORIENTATION_FLIP_VERTICAL -> {
+                matrix.setRotate(180f)
+                matrix.postScale(-1f, 1f)
+            }
+            ExifInterface.ORIENTATION_TRANSPOSE -> {
+                matrix.setRotate(90f)
+                matrix.postScale(-1f, 1f)
+            }
+            ExifInterface.ORIENTATION_ROTATE_90 -> matrix.setRotate(90f)
+            ExifInterface.ORIENTATION_TRANSVERSE -> {
+                matrix.setRotate(-90f)
+                matrix.postScale(-1f, 1f)
+            }
+            ExifInterface.ORIENTATION_ROTATE_270 -> matrix.setRotate(-90f)
+        }
+        val oriented = if (orientation == ExifInterface.ORIENTATION_NORMAL) {
+            decoded
+        } else {
+            Bitmap.createBitmap(
+                decoded,
+                0,
+                0,
+                decoded.width,
+                decoded.height,
+                matrix,
+                true,
+            )
+        }
+        val inverted = Bitmap.createBitmap(
+            oriented.width,
+            oriented.height,
+            Bitmap.Config.ARGB_8888,
+        )
+        val paint = Paint().apply {
+            colorFilter = ColorMatrixColorFilter(
+                ColorMatrix(
+                    floatArrayOf(
+                        -1f, 0f, 0f, 0f, 255f,
+                        0f, -1f, 0f, 0f, 255f,
+                        0f, 0f, -1f, 0f, 255f,
+                        0f, 0f, 0f, 1f, 0f,
+                    ),
+                ),
+            )
+        }
+        Canvas(inverted).drawBitmap(oriented, 0f, 0f, paint)
+        if (oriented !== decoded) {
+            oriented.recycle()
+        }
+        decoded.recycle()
+        return InputImage.fromBitmap(inverted, 0)
     }
 
     override suspend fun dispose() {
@@ -444,6 +529,9 @@ class InstantBarcodeScannerPlugin : FlutterPlugin, ActivityAware, ScannerHostApi
             },
             onBarcodes = { barcodes ->
                 scope.launch { api.onBarcodes(barcodes) }
+            },
+            onAnalysisFrame = { frame ->
+                scope.launch { api.onAnalysisFrame(frame) }
             },
             selection = { selection },
             formats = config.formats,

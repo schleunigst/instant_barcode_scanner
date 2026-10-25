@@ -152,6 +152,20 @@ class PlatformBarcode {
   final List<PlatformPoint>? corners;
 }
 
+/// Geometry of the analysis frames barcode coordinates refer to.
+class PlatformAnalysisFrame {
+  PlatformAnalysisFrame(this.width, this.height, this.rotationDegrees);
+
+  /// Width of the upright analysis frame in pixels.
+  final int width;
+
+  /// Height of the upright analysis frame in pixels.
+  final int height;
+
+  /// Clockwise rotation applied to the camera buffer to make it upright.
+  final int rotationDegrees;
+}
+
 /// A confirmed mechanism state.
 class PlatformSnapshot {
   PlatformSnapshot(this.state, this.errorCode, this.errorMessage);
@@ -170,6 +184,9 @@ class PlatformCapabilities {
     this.supportsZoom,
     this.minZoom,
     this.maxZoom,
+    this.cameraFacing,
+    this.cameraLensType,
+    this.cameraId,
   );
 
   /// Session config can be kept parked (device open, session configured,
@@ -190,6 +207,15 @@ class PlatformCapabilities {
 
   /// Maximum zoom ratio for the selected camera.
   final double maxZoom;
+
+  /// Facing actually resolved after fallback (normally [PlatformScannerConfig.facing]).
+  final PlatformCameraFacing cameraFacing;
+
+  /// Lens class the resolved camera was selected for.
+  final PlatformCameraLensType cameraLensType;
+
+  /// Platform camera id actually resolved; diagnostics and exact selection.
+  final String cameraId;
 }
 
 /// Geometry of the preview texture, in buffer pixels plus the clockwise
@@ -284,6 +310,9 @@ abstract class ScannerFlutterApi {
 
   /// A batch of barcodes decoded while `live`.
   void onBarcodes(List<PlatformBarcode> barcodes);
+
+  /// The analysis frame's upright size/rotation was established or changed.
+  void onAnalysisFrame(PlatformAnalysisFrame frame);
 
   /// The preview texture's buffer size and display transform changed.
   void onPreviewMetrics(PlatformPreviewMetrics metrics);

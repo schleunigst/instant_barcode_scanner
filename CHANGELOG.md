@@ -15,7 +15,11 @@
   `BarcodeType`, `boundingBox`, and `corners` on results.
 - Normalized, rotation-aware scan windows via `updateScanWindow`.
 - Still-image decoding through `analyzeImage` without opening the camera.
-- `invertImage` support for white-on-black symbols.
+- `invertImage` support for white-on-black symbols, including still images.
+- `analysisMetrics` and per-event `ScanEvent.analysisFrame` expose upright
+  analysis-frame size/rotation for barcode coordinate mapping.
+- `ScannerCapabilities` reports the resolved `cameraFacing`,
+  `cameraLensType`, and `cameraId` after fallback.
 - Preview fit, overlay and placeholder builders, upright rotation, and
   front-camera mirroring in `InstantBarcodeScannerView`.
 
@@ -34,6 +38,10 @@
 - Accept zoom before the first drive and apply it when the device opens.
 - Refuse NFC handoff when the platform cannot guarantee a true camera close.
 - Drop decoded batches delivered after the scanner leaves `live`.
+- Fall back to a barcode's bounding box for scan-window filtering when the
+  decoder does not report corners.
+- Snapshot `ScannerConfig.formats` so later caller mutation cannot alter a
+  running controller.
 
 ## 0.1.0
 

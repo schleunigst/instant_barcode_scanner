@@ -36,16 +36,17 @@ import 'platform/types.dart';
 /// per-engine singleton and two controllers would steal each other's events.
 class InstantBarcodeScanner {
   InstantBarcodeScanner({
-    ScannerConfig config = const ScannerConfig(),
+    ScannerConfig? config,
     InstantBarcodeScannerPlatform? platform,
     this.policy = const ScannerPolicy(),
-  }) : _config = config,
-       _zoomScale = ValueNotifier(config.initialZoom ?? 0),
+  }) : _config = config ?? ScannerConfig(),
+       _zoomScale = ValueNotifier(config?.initialZoom ?? 0),
        _platform = platform ?? InstantBarcodeScannerPlatform.instance {
     _platform.setEventHandlers(
       onState: _handleStatus,
       onBarcodes: _handleBarcodes,
       onPreviewMetrics: _handlePreviewMetrics,
+      onAnalysisFrame: _handleAnalysisFrame,
     );
   }
 
@@ -63,6 +64,7 @@ class InstantBarcodeScanner {
   );
   final ValueNotifier<int?> _textureId = ValueNotifier(null);
   final ValueNotifier<PreviewMetrics?> _previewMetrics = ValueNotifier(null);
+  final ValueNotifier<AnalysisMetrics?> _analysisMetrics = ValueNotifier(null);
   final ValueNotifier<TorchState> _torchState = ValueNotifier(TorchState.off);
   final ValueNotifier<double> _zoomScale;
   final StreamController<ScanResult> _scanController =
@@ -80,6 +82,7 @@ class InstantBarcodeScanner {
   Future<ScanResult>? _activeScan;
   Completer<ScanResult>? _pendingScan;
   bool _handoff = false;
+  bool _switchingCamera = false;
   ScannerState? _handoffResumeTarget;
   Completer<void>? _handoffEnded;
   bool _disposed = false;
@@ -107,6 +110,10 @@ class InstantBarcodeScanner {
   /// Preview buffer geometry for aspect-correct rendering; null until the
   /// platform reports it or after [dispose].
   ValueListenable<PreviewMetrics?> get previewMetrics => _previewMetrics;
+
+  /// Upright analysis-frame geometry for [ScanResult] boxes/corners; null
+  /// until a camera session establishes it and after the scanner closes.
+  ValueListenable<AnalysisMetrics?> get analysisMetrics => _analysisMetrics;
 
   /// The configuration this scanner runs with (facing/lens reflect
   /// [switchCamera]).
@@ -345,10 +352,13 @@ class InstantBarcodeScanner {
       _cancelIdle();
       await _ensureConfigured();
       ScannerStatus status;
+      _switchingCamera = true;
       try {
         status = await _platform.switchCamera(nextFacing, nextLens);
       } on PlatformException catch (e) {
         throw _platformFailure(e);
+      } finally {
+        _switchingCamera = false;
       }
       _adopt(status);
       final expected = before == ScannerState.failed
@@ -636,6 +646,7 @@ class InstantBarcodeScanner {
       } finally {
         _textureId.value = null;
         _previewMetrics.value = null;
+        _analysisMetrics.value = null;
       }
     });
     _disposeFuture = future;
@@ -774,6 +785,11 @@ class InstantBarcodeScanner {
     } else {
       _status.value = status;
     }
+    if (!_switchingCamera &&
+        (status.state == ScannerState.closed ||
+            status.state == ScannerState.failed)) {
+      _analysisMetrics.value = null;
+    }
     if (status.state == ScannerState.live) {
       if (_config.torchEnabled && !_torchAppliedFromConfig) {
         _torchAppliedFromConfig = true;
@@ -804,6 +820,13 @@ class InstantBarcodeScanner {
     _previewMetrics.value = metrics;
   }
 
+  void _handleAnalysisFrame(AnalysisMetrics metrics) {
+    if (_disposed) {
+      return;
+    }
+    _analysisMetrics.value = metrics;
+  }
+
   void _handleBarcodes(List<ScanResult> results) {
     if (results.isEmpty ||
         _disposed ||
@@ -827,7 +850,9 @@ class InstantBarcodeScanner {
       }
     }
     if (!_eventController.isClosed) {
-      _eventController.add(ScanEvent(results));
+      _eventController.add(
+        ScanEvent(results, analysisFrame: _analysisMetrics.value),
+      );
     }
   }
 

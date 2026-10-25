@@ -59,6 +59,7 @@ class CameraMechanismDeviceTest {
             onPreviewSize = { width, height, _ -> texture.setDefaultBufferSize(width, height) },
             onStateChanged = {},
             onBarcodes = {},
+            onAnalysisFrame = {},
             selection = {
                 CameraSelection(PlatformCameraFacing.BACK, PlatformCameraLensType.ANY)
             },

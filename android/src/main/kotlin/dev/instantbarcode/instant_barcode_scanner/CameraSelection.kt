@@ -27,6 +27,13 @@ internal data class CameraSelection(
 /** Zoom range of a camera, in device zoom-ratio units. */
 internal data class ZoomInfo(val min: Double, val max: Double)
 
+/** The camera actually chosen for a request, after any fallback. */
+internal data class ResolvedCamera(
+    val id: String,
+    val facing: PlatformCameraFacing,
+    val lensType: PlatformCameraLensType,
+)
+
 /**
  * Resolve a facing/lens request to a camera id.
  *
@@ -36,7 +43,7 @@ internal data class ZoomInfo(val min: Double, val max: Double)
  * facing does not exist we fall back to the back camera, then to any camera —
  * mirroring the v0.1 behaviour instead of failing the open.
  */
-internal fun resolveCameraId(manager: CameraManager, selection: CameraSelection): String {
+internal fun resolveCamera(manager: CameraManager, selection: CameraSelection): ResolvedCamera {
     data class Candidate(val id: String, val facing: PlatformCameraFacing, val focal: Float?)
 
     val candidates = manager.cameraIdList.mapNotNull { id ->
@@ -61,18 +68,24 @@ internal fun resolveCameraId(manager: CameraManager, selection: CameraSelection)
         .ifEmpty { candidates }
     require(sameFacing.isNotEmpty()) { "no camera is available" }
     if (selection.lensType == PlatformCameraLensType.ANY || sameFacing.size == 1) {
-        return sameFacing.first().id
+        val chosen = sameFacing.first()
+        return ResolvedCamera(chosen.id, chosen.facing, PlatformCameraLensType.ANY)
     }
     val byFocal = sameFacing.sortedBy { it.focal ?: Float.MAX_VALUE }
-    return when (selection.lensType) {
-        PlatformCameraLensType.WIDE -> byFocal.first().id
-        PlatformCameraLensType.ZOOM -> byFocal.last().id
+    val chosen = when (selection.lensType) {
+        PlatformCameraLensType.WIDE -> byFocal.first()
+        PlatformCameraLensType.ZOOM -> byFocal.last()
         PlatformCameraLensType.NORMAL ->
-            byFocal.minByOrNull { abs((it.focal ?: 4.3f) - 4.3f) }?.id
-                ?: byFocal.first().id
-        PlatformCameraLensType.ANY -> sameFacing.first().id
+            byFocal.minByOrNull { abs((it.focal ?: 4.3f) - 4.3f) }
+                ?: byFocal.first()
+        PlatformCameraLensType.ANY -> byFocal.first()
     }
+    return ResolvedCamera(chosen.id, chosen.facing, selection.lensType)
 }
+
+/** Resolve a facing/lens request to a camera id. */
+internal fun resolveCameraId(manager: CameraManager, selection: CameraSelection): String =
+    resolveCamera(manager, selection).id
 
 /** The back camera, or the first camera if there is no back-facing one. */
 internal fun backCameraId(manager: CameraManager): String {

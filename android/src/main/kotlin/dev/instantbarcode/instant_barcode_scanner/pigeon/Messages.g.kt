@@ -569,6 +569,58 @@ data class PlatformBarcode (
 }
 
 /**
+ * Geometry of the analysis frames barcode coordinates refer to.
+ *
+ * Generated class from Pigeon that represents data sent in messages.
+ */
+data class PlatformAnalysisFrame (
+  /** Width of the upright analysis frame in pixels. */
+  val width: Long,
+  /** Height of the upright analysis frame in pixels. */
+  val height: Long,
+  /** Clockwise rotation applied to the camera buffer to make it upright. */
+  val rotationDegrees: Long
+)
+ {
+  companion object {
+    fun fromList(pigeonVar_list: List<Any?>): PlatformAnalysisFrame {
+      val width = pigeonVar_list[0] as Long
+      val height = pigeonVar_list[1] as Long
+      val rotationDegrees = pigeonVar_list[2] as Long
+      return PlatformAnalysisFrame(width, height, rotationDegrees)
+    }
+  }
+  fun toList(): List<Any?> {
+    return listOf(
+      width,
+      height,
+      rotationDegrees,
+    )
+  }
+  override fun equals(other: Any?): Boolean {
+    if (other == null || other.javaClass != javaClass) {
+      return false
+    }
+    if (this === other) {
+      return true
+    }
+    val other = other as PlatformAnalysisFrame
+    return MessagesPigeonUtils.deepEquals(this.width, other.width) && MessagesPigeonUtils.deepEquals(this.height, other.height) && MessagesPigeonUtils.deepEquals(this.rotationDegrees, other.rotationDegrees)
+  }
+
+  override fun hashCode(): Int {
+    var result = javaClass.hashCode()
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.width)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.height)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.rotationDegrees)
+    return result
+  }
+  override fun toString(): String {
+    return "PlatformAnalysisFrame(width=$width, height=$height, rotationDegrees=$rotationDegrees)"
+  }
+}
+
+/**
  * A confirmed mechanism state.
  *
  * Generated class from Pigeon that represents data sent in messages.
@@ -637,7 +689,13 @@ data class PlatformCapabilities (
   /** Minimum zoom ratio (usually 1.0). */
   val minZoom: Double,
   /** Maximum zoom ratio for the selected camera. */
-  val maxZoom: Double
+  val maxZoom: Double,
+  /** Facing actually resolved after fallback (normally [PlatformScannerConfig.facing]). */
+  val cameraFacing: PlatformCameraFacing,
+  /** Lens class the resolved camera was selected for. */
+  val cameraLensType: PlatformCameraLensType,
+  /** Platform camera id actually resolved; diagnostics and exact selection. */
+  val cameraId: String
 )
  {
   companion object {
@@ -648,7 +706,10 @@ data class PlatformCapabilities (
       val supportsZoom = pigeonVar_list[3] as Boolean
       val minZoom = pigeonVar_list[4] as Double
       val maxZoom = pigeonVar_list[5] as Double
-      return PlatformCapabilities(supportsPark, supportsTrueClose, supportsTorch, supportsZoom, minZoom, maxZoom)
+      val cameraFacing = pigeonVar_list[6] as PlatformCameraFacing
+      val cameraLensType = pigeonVar_list[7] as PlatformCameraLensType
+      val cameraId = pigeonVar_list[8] as String
+      return PlatformCapabilities(supportsPark, supportsTrueClose, supportsTorch, supportsZoom, minZoom, maxZoom, cameraFacing, cameraLensType, cameraId)
     }
   }
   fun toList(): List<Any?> {
@@ -659,6 +720,9 @@ data class PlatformCapabilities (
       supportsZoom,
       minZoom,
       maxZoom,
+      cameraFacing,
+      cameraLensType,
+      cameraId,
     )
   }
   override fun equals(other: Any?): Boolean {
@@ -669,7 +733,7 @@ data class PlatformCapabilities (
       return true
     }
     val other = other as PlatformCapabilities
-    return MessagesPigeonUtils.deepEquals(this.supportsPark, other.supportsPark) && MessagesPigeonUtils.deepEquals(this.supportsTrueClose, other.supportsTrueClose) && MessagesPigeonUtils.deepEquals(this.supportsTorch, other.supportsTorch) && MessagesPigeonUtils.deepEquals(this.supportsZoom, other.supportsZoom) && MessagesPigeonUtils.deepEquals(this.minZoom, other.minZoom) && MessagesPigeonUtils.deepEquals(this.maxZoom, other.maxZoom)
+    return MessagesPigeonUtils.deepEquals(this.supportsPark, other.supportsPark) && MessagesPigeonUtils.deepEquals(this.supportsTrueClose, other.supportsTrueClose) && MessagesPigeonUtils.deepEquals(this.supportsTorch, other.supportsTorch) && MessagesPigeonUtils.deepEquals(this.supportsZoom, other.supportsZoom) && MessagesPigeonUtils.deepEquals(this.minZoom, other.minZoom) && MessagesPigeonUtils.deepEquals(this.maxZoom, other.maxZoom) && MessagesPigeonUtils.deepEquals(this.cameraFacing, other.cameraFacing) && MessagesPigeonUtils.deepEquals(this.cameraLensType, other.cameraLensType) && MessagesPigeonUtils.deepEquals(this.cameraId, other.cameraId)
   }
 
   override fun hashCode(): Int {
@@ -680,10 +744,13 @@ data class PlatformCapabilities (
     result = 31 * result + MessagesPigeonUtils.deepHash(this.supportsZoom)
     result = 31 * result + MessagesPigeonUtils.deepHash(this.minZoom)
     result = 31 * result + MessagesPigeonUtils.deepHash(this.maxZoom)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.cameraFacing)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.cameraLensType)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.cameraId)
     return result
   }
   override fun toString(): String {
-    return "PlatformCapabilities(supportsPark=$supportsPark, supportsTrueClose=$supportsTrueClose, supportsTorch=$supportsTorch, supportsZoom=$supportsZoom, minZoom=$minZoom, maxZoom=$maxZoom)"
+    return "PlatformCapabilities(supportsPark=$supportsPark, supportsTrueClose=$supportsTrueClose, supportsTorch=$supportsTorch, supportsZoom=$supportsZoom, minZoom=$minZoom, maxZoom=$maxZoom, cameraFacing=$cameraFacing, cameraLensType=$cameraLensType, cameraId=$cameraId)"
   }
 }
 
@@ -797,15 +864,20 @@ private open class MessagesPigeonCodec : StandardMessageCodec() {
       }
       139.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          PlatformSnapshot.fromList(it)
+          PlatformAnalysisFrame.fromList(it)
         }
       }
       140.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          PlatformCapabilities.fromList(it)
+          PlatformSnapshot.fromList(it)
         }
       }
       141.toByte() -> {
+        return (readValue(buffer) as? List<Any?>)?.let {
+          PlatformCapabilities.fromList(it)
+        }
+      }
+      142.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
           PlatformPreviewMetrics.fromList(it)
         }
@@ -855,16 +927,20 @@ private open class MessagesPigeonCodec : StandardMessageCodec() {
         stream.write(138)
         writeValue(stream, value.toList())
       }
-      is PlatformSnapshot -> {
+      is PlatformAnalysisFrame -> {
         stream.write(139)
         writeValue(stream, value.toList())
       }
-      is PlatformCapabilities -> {
+      is PlatformSnapshot -> {
         stream.write(140)
         writeValue(stream, value.toList())
       }
-      is PlatformPreviewMetrics -> {
+      is PlatformCapabilities -> {
         stream.write(141)
+        writeValue(stream, value.toList())
+      }
+      is PlatformPreviewMetrics -> {
+        stream.write(142)
         writeValue(stream, value.toList())
       }
       else -> super.writeValue(stream, value)
@@ -1142,7 +1218,10 @@ class ScannerFlutterApi(private val binaryMessenger: BinaryMessenger, private va
       MessagesPigeonCodec()
     }
   }
-  /** Every confirmed (stable) state change plus unexpected failures. */
+  /**
+   * Every confirmed state change, including transient `opening`/`closing`
+   * snapshots and unexpected failures.
+   */
   suspend fun onStateChanged(snapshotArg: PlatformSnapshot)
 {
     val separatedMessageChannelSuffix = if (messageChannelSuffix.isNotEmpty()) ".$messageChannelSuffix" else ""
@@ -1158,7 +1237,7 @@ class ScannerFlutterApi(private val binaryMessenger: BinaryMessenger, private va
           }
         } else {
           continuation.resumeWithException(MessagesPigeonUtils.createConnectionError(channelName))
-        } 
+        }
       }
     }
   }
@@ -1178,7 +1257,27 @@ class ScannerFlutterApi(private val binaryMessenger: BinaryMessenger, private va
           }
         } else {
           continuation.resumeWithException(MessagesPigeonUtils.createConnectionError(channelName))
-        } 
+        }
+      }
+    }
+  }
+  /** The analysis frame's upright size/rotation was established or changed. */
+  suspend fun onAnalysisFrame(frameArg: PlatformAnalysisFrame)
+{
+    val separatedMessageChannelSuffix = if (messageChannelSuffix.isNotEmpty()) ".$messageChannelSuffix" else ""
+    return suspendCancellableCoroutine { continuation ->
+      val channelName = "dev.flutter.pigeon.instant_barcode_scanner.ScannerFlutterApi.onAnalysisFrame$separatedMessageChannelSuffix"
+      val channel = BasicMessageChannel<Any?>(binaryMessenger, channelName, codec)
+      channel.send(listOf(frameArg)) {
+        if (it is List<*>) {
+          if (it.size > 1) {
+            continuation.resumeWithException(FlutterError(it[0] as String, it[1] as String, it[2] as String?))
+          } else {
+            continuation.resume(Unit)
+          }
+        } else {
+          continuation.resumeWithException(MessagesPigeonUtils.createConnectionError(channelName))
+        }
       }
     }
   }
@@ -1198,7 +1297,7 @@ class ScannerFlutterApi(private val binaryMessenger: BinaryMessenger, private va
           }
         } else {
           continuation.resumeWithException(MessagesPigeonUtils.createConnectionError(channelName))
-        } 
+        }
       }
     }
   }

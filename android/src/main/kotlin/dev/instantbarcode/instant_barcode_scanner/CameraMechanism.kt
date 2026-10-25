@@ -1,17 +1,23 @@
 package dev.instantbarcode.instant_barcode_scanner
 
 import android.content.Context
+import android.graphics.Rect
 import android.graphics.SurfaceTexture
 import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraManager
+import android.hardware.camera2.CaptureRequest
+import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
 import android.util.Log
 import android.view.Surface
 import dev.instantbarcode.instant_barcode_scanner.pigeon.PlatformBarcode
+import dev.instantbarcode.instant_barcode_scanner.pigeon.PlatformBarcodeFormat
+import dev.instantbarcode.instant_barcode_scanner.pigeon.PlatformDetectionSpeed
+import dev.instantbarcode.instant_barcode_scanner.pigeon.PlatformRect
 import dev.instantbarcode.instant_barcode_scanner.pigeon.PlatformSnapshot
 import dev.instantbarcode.instant_barcode_scanner.pigeon.PlatformState
 
@@ -51,12 +57,24 @@ internal class CameraMechanism(
     private val onPreviewSize: (width: Int, height: Int) -> Unit,
     private val onStateChanged: (PlatformSnapshot) -> Unit,
     private val onBarcodes: (List<PlatformBarcode>) -> Unit,
+    private val selection: () -> CameraSelection,
+    formats: List<PlatformBarcodeFormat>,
+    detectionSpeed: PlatformDetectionSpeed,
+    detectionTimeoutMs: Int,
+    initialScanWindow: PlatformRect?,
+    invertImage: Boolean,
+    initialTorch: Boolean,
+    private val initialZoom: Double?,
+    targetWidth: Int?,
+    targetHeight: Int?,
 ) {
     companion object {
         private const val TAG = "InstantScanner"
     }
 
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val maxAnalysisWidth = targetWidth ?: 1280
+    private val maxAnalysisHeight = targetHeight ?: 720
 
     private var thread: HandlerThread? = null
     private var handler: Handler? = null
@@ -64,11 +82,29 @@ internal class CameraMechanism(
     private var device: CameraDevice? = null
     private var session: CameraCaptureSession? = null
     private var sensorRotation = 90
+    private var selectedCameraId: String? = null
+
+    /** Bumped on every switch; stale open callbacks must not claim the camera. */
+    private var selectionGeneration = 0L
+
+    private var hasFlash = false
+    private var torchEnabled = initialTorch
+    private var zoomMin = 1f
+    private var zoomMax = 1f
+    private var zoomRatio: Float? = null
+    private var pendingZoomRatio: Float? = null
+    private var resetZoomOnOpen = false
+    private var activeArray: Rect? = null
 
     @Volatile private var streaming = false
 
     private val analysis = BarcodeAnalysisPipeline(
         context = context,
+        formats = formats,
+        detectionSpeed = detectionSpeed,
+        detectionTimeoutMs = detectionTimeoutMs.toLong(),
+        initialScanWindow = initialScanWindow,
+        invertImage = invertImage,
         isLive = { streaming },
         onBarcodes = onBarcodes,
     )
@@ -127,6 +163,116 @@ internal class CameraMechanism(
             requestedSeq = ++commandSeq
             pendingResults.add(result)
             pump()
+        }
+    }
+
+    /**
+     * Re-open the camera with the current [selection] provider, restoring the
+     * state that was confirmed before the switch. Runs through the same pump
+     * as drives, so callers only see confirmed snapshots.
+     */
+    fun switchCamera(result: (PlatformSnapshot) -> Unit) {
+        if (!accepting) {
+            result(detachedSnapshot("scanner has been disposed"))
+            return
+        }
+        cameraHandlerFor().post {
+            if (!accepting) {
+                postResult(result, detachedSnapshot("scanner has been disposed"))
+                return@post
+            }
+            val restoreTo = requested ?: targetForState(currentState())
+            selectionGeneration++
+            stopRepeating()
+            closeSession()
+            closeDevice()
+            selectedCameraId = null
+            torchEnabled = false
+            zoomRatio = null
+            // A new camera starts at its widest field of view, matching the
+            // controller resetting its normalized zoom to 0.
+            pendingZoomRatio = null
+            resetZoomOnOpen = true
+            requested = restoreTo
+            requestedSeq = ++commandSeq
+            pendingResults.add(result)
+            pump()
+        }
+    }
+
+    /** Applies immediately: the pipeline reads the window per decode. */
+    fun setScanWindow(window: PlatformRect?) {
+        analysis.setScanWindow(window)
+    }
+
+    /** Torch is a live-only control; enabling it while not streaming stores it. */
+    fun setTorch(enabled: Boolean, result: (Boolean, String?) -> Unit) {
+        cameraHandlerFor().post {
+            if (!accepting) {
+                postCommandResult(result, false, "scanner has been disposed")
+                return@post
+            }
+            if (enabled && !hasFlash) {
+                postCommandResult(result, false, "torch is not available")
+                return@post
+            }
+            torchEnabled = enabled
+            if (!streaming) {
+                postCommandResult(result, true, null)
+                return@post
+            }
+            val error = startRepeating()
+            postCommandResult(result, error == null, error)
+        }
+    }
+
+    /** Zoom applies immediately when live; otherwise it is stored for the next start. */
+    fun setZoom(ratio: Double, result: (Double?, String?) -> Unit) {
+        cameraHandlerFor().post {
+            if (!accepting) {
+                postCommandResult(result, null, "scanner has been disposed")
+                return@post
+            }
+            val targetRatio = ratio.toFloat()
+            pendingZoomRatio = targetRatio
+            if (device == null) {
+                postCommandResult(result, targetRatio.toDouble(), null)
+                return@post
+            }
+            val applied = targetRatio.coerceIn(zoomMin, zoomMax)
+            zoomRatio = applied
+            pendingZoomRatio = applied
+            if (streaming) {
+                val error = startRepeating()
+                if (error != null) {
+                    postCommandResult(result, null, error)
+                    return@post
+                }
+            }
+            postCommandResult(result, applied.toDouble(), null)
+        }
+    }
+
+    private fun targetForState(state: PlatformState): Target {
+        return when (state) {
+            PlatformState.LIVE -> Target(device = true, session = true, streaming = true)
+            PlatformState.PARKED -> Target(device = true, session = true, streaming = false)
+            PlatformState.OPEN -> Target(device = true, session = false, streaming = false)
+            else -> Target(device = false, session = false, streaming = false)
+        }
+    }
+
+    private fun <T> postCommandResult(
+        result: (T, String?) -> Unit,
+        value: T,
+        error: String?,
+    ) {
+        mainHandler.post {
+            try {
+                result(value, error)
+            } catch (t: Throwable) {
+                Log.w(TAG, "command result callback failed", t)
+            }
         }
     }
 
@@ -342,20 +488,42 @@ internal class CameraMechanism(
     private fun openDevice(done: (Boolean, String?) -> Unit) {
         val manager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
         val camId = try {
-            backCameraId(manager)
+            resolveCameraId(manager, selection())
         } catch (t: Throwable) {
             Log.w(TAG, "no camera", t)
             done(false, "no camera is available")
             return
         }
+        val generation = selectionGeneration
+        selectedCameraId = camId
         try {
             val characteristics = manager.getCameraCharacteristics(camId)
             val map = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
             if (map != null) {
-                val size = bestSize(map.getOutputSizes(SurfaceTexture::class.java))
+                val size = bestSize(
+                    map.getOutputSizes(SurfaceTexture::class.java),
+                    maxAnalysisWidth,
+                    maxAnalysisHeight,
+                )
                 onPreviewSize(size.width, size.height)
             }
             sensorRotation = sensorOrientation(characteristics)
+            hasFlash =
+                characteristics.get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
+            val zoom = zoomInfo(characteristics)
+            zoomMin = zoom.min.toFloat()
+            zoomMax = zoom.max.toFloat()
+            activeArray = characteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE)
+            zoomRatio = when {
+                resetZoomOnOpen -> zoomMin
+                pendingZoomRatio != null -> pendingZoomRatio
+                else -> initialZoom?.let {
+                    val fraction = it.coerceIn(0.0, 1.0).toFloat()
+                    zoomMin + fraction * (zoomMax - zoomMin)
+                }
+            }?.coerceIn(zoomMin, zoomMax)
+            resetZoomOnOpen = false
+            pendingZoomRatio = zoomRatio
         } catch (t: Throwable) {
             Log.w(TAG, "camera characteristics failed", t)
             done(false, "camera characteristics could not be read")
@@ -366,6 +534,14 @@ internal class CameraMechanism(
                 camId,
                 object : CameraDevice.StateCallback() {
                     override fun onOpened(dev: CameraDevice) {
+                        if (generation != selectionGeneration) {
+                            try {
+                                dev.close()
+                            } catch (_: Throwable) {
+                            }
+                            done(false, "camera selection changed while opening")
+                            return
+                        }
                         device = dev
                         done(true, null)
                     }
@@ -447,8 +623,17 @@ internal class CameraMechanism(
             return
         }
         val surfaces = mutableListOf(preview)
+        val cameraId = selectedCameraId ?: run {
+            done(false, "camera device is not open")
+            return
+        }
         val analysisTarget = try {
-            analysis.target(sensorRotation)
+            analysis.target(
+                sensorRotation,
+                cameraId,
+                maxAnalysisWidth,
+                maxAnalysisHeight,
+            )
         } catch (t: Throwable) {
             Log.w(TAG, "analysis reader failed", t)
             done(false, "analysis target could not be created")
@@ -500,14 +685,26 @@ internal class CameraMechanism(
         val dev = device ?: return "camera device is not open"
         val s = session ?: return "capture session is not configured"
         val preview = previewSurface() ?: return "preview surface is not available"
+        val cameraId = selectedCameraId ?: return "camera device is not open"
         try {
             val request = dev.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
             request.addTarget(preview)
             try {
-                request.addTarget(analysis.target(sensorRotation))
+                request.addTarget(
+                    analysis.target(
+                        sensorRotation,
+                        cameraId,
+                        maxAnalysisWidth,
+                        maxAnalysisHeight,
+                    ),
+                )
             } catch (t: Throwable) {
                 Log.w(TAG, "analysis target missing", t)
             }
+            if (torchEnabled && hasFlash) {
+                request.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_TORCH)
+            }
+            applyZoom(request)
             s.setRepeatingRequest(request.build(), null, cameraHandlerFor())
             analysis.newGeneration()
             streaming = true
@@ -516,6 +713,27 @@ internal class CameraMechanism(
             Log.w(TAG, "setRepeatingRequest failed", t)
             return "repeating request failed: ${t.message}"
         }
+    }
+
+    private fun applyZoom(request: CaptureRequest.Builder) {
+        val ratio = zoomRatio ?: return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            request.set(CaptureRequest.CONTROL_ZOOM_RATIO, ratio)
+            return
+        }
+        val active = activeArray ?: return
+        if (ratio <= 1f) {
+            request.set(CaptureRequest.SCALER_CROP_REGION, active)
+            return
+        }
+        val width = (active.width() / ratio).toInt().coerceAtLeast(1)
+        val height = (active.height() / ratio).toInt().coerceAtLeast(1)
+        val left = active.centerX() - width / 2
+        val top = active.centerY() - height / 2
+        request.set(
+            CaptureRequest.SCALER_CROP_REGION,
+            Rect(left, top, left + width, top + height),
+        )
     }
 
     private fun stopRepeating() {
@@ -532,6 +750,8 @@ internal class CameraMechanism(
         } catch (_: Throwable) {
         }
         streaming = false
+        // Torch is a live-only control: leaving live releases the flash too.
+        torchEnabled = false
     }
 
 }

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show Rect;
 
 import 'package:instant_barcode_scanner/instant_barcode_scanner.dart';
 
@@ -20,8 +21,22 @@ class FakePlatform implements InstantBarcodeScannerPlatform {
 
   final List<Completer<ScannerStatus>> _held = [];
   Future<int> Function()? textureHandler;
+  Future<ScannerCapabilities> Function()? capabilitiesHandler;
   ScannerStatus Function(ScannerState target)? nextDriveResult;
+  Future<ScannerStatus> Function(CameraFacing facing, CameraLensType lensType)?
+  switchHandler;
+  Future<void> Function(bool enabled)? torchHandler;
+  Future<void> Function(double ratio)? zoomHandler;
+  Future<List<ScanResult>> Function(String path)? analyzeImageHandler;
   bool holdDrives = false;
+
+  ScannerConfig? configured;
+  bool torch = false;
+  double zoomRatio = 1.0;
+  Rect? scanWindow;
+  List<ScanResult> analyzeImageResult = const [];
+  final List<String> analyzedPaths = [];
+  final List<(CameraFacing, CameraLensType)> switches = [];
 
   void Function(ScannerStatus status)? _onState;
   void Function(List<ScanResult> results)? _onBarcodes;
@@ -36,6 +51,12 @@ class FakePlatform implements InstantBarcodeScannerPlatform {
   }
 
   @override
+  Future<void> configure(ScannerConfig config) {
+    configured = config;
+    return Future.value();
+  }
+
+  @override
   Future<int> getTextureId() {
     textureCalls++;
     final handler = textureHandler;
@@ -46,8 +67,13 @@ class FakePlatform implements InstantBarcodeScannerPlatform {
   }
 
   @override
-  Future<ScannerCapabilities> getCapabilities() =>
-      Future.value(capabilitiesResult);
+  Future<ScannerCapabilities> getCapabilities() {
+    final handler = capabilitiesHandler;
+    if (handler != null) {
+      return handler();
+    }
+    return Future.value(capabilitiesResult);
+  }
 
   @override
   Future<ScannerStatus> driveTo(ScannerState target) {
@@ -72,11 +98,55 @@ class FakePlatform implements InstantBarcodeScannerPlatform {
     return Future.value();
   }
 
+  @override
+  Future<ScannerStatus> switchCamera(
+    CameraFacing facing,
+    CameraLensType lensType,
+  ) {
+    switches.add((facing, lensType));
+    final handler = switchHandler;
+    if (handler != null) {
+      return handler(facing, lensType);
+    }
+    return Future.value(ScannerStatus(state: current));
+  }
+
+  @override
+  Future<void> setTorch(bool enabled) {
+    torch = enabled;
+    return torchHandler?.call(enabled) ?? Future.value();
+  }
+
+  @override
+  Future<void> setZoom(double ratio) {
+    zoomRatio = ratio;
+    return zoomHandler?.call(ratio) ?? Future.value();
+  }
+
+  @override
+  Future<void> updateScanWindow(Rect? window) {
+    scanWindow = window;
+    return Future.value();
+  }
+
+  @override
+  Future<List<ScanResult>> analyzeImage(String path) {
+    analyzedPaths.add(path);
+    return analyzeImageHandler?.call(path) ?? Future.value(analyzeImageResult);
+  }
+
   /// Finish the oldest held [driveTo] call, confirming [actual] as the state
   /// the mechanism ended up in.
   void completeHeld(ScannerState actual) {
     final completer = _held.removeAt(0);
     completer.complete(_confirm(ScannerStatus(state: actual)));
+  }
+
+  /// Deliver a state event without a drive call: backgrounding, unplugging,
+  /// or an idle step-down confirmed by the mechanism itself.
+  void emitStatus(ScannerStatus status) {
+    current = status.state;
+    _onState?.call(status);
   }
 
   ScannerStatus _confirm(ScannerStatus status) {

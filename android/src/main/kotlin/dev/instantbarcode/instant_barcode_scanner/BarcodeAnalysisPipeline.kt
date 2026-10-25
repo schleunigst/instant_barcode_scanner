@@ -8,14 +8,17 @@ import android.media.ImageReader
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 import android.view.Surface
 import com.google.mlkit.vision.barcode.BarcodeScanner
 import com.google.mlkit.vision.barcode.BarcodeScanning
-import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
 import dev.instantbarcode.instant_barcode_scanner.pigeon.PlatformBarcode
 import dev.instantbarcode.instant_barcode_scanner.pigeon.PlatformBarcodeFormat
+import dev.instantbarcode.instant_barcode_scanner.pigeon.PlatformDetectionSpeed
+import dev.instantbarcode.instant_barcode_scanner.pigeon.PlatformRect
+import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -36,6 +39,11 @@ import java.util.concurrent.atomic.AtomicBoolean
  */
 internal class BarcodeAnalysisPipeline(
     private val context: Context,
+    private val formats: List<PlatformBarcodeFormat>,
+    private val detectionSpeed: PlatformDetectionSpeed,
+    private val detectionTimeoutMs: Long,
+    initialScanWindow: PlatformRect?,
+    private val invertImage: Boolean,
     private val isLive: () -> Boolean,
     private val onBarcodes: (List<PlatformBarcode>) -> Unit,
 ) {
@@ -49,8 +57,28 @@ internal class BarcodeAnalysisPipeline(
     private val handler = Handler(thread.looper)
 
     private var reader: ImageReader? = null
+    private var readerCameraId: String? = null
+    private var readerMaxWidth = 0
+    private var readerMaxHeight = 0
     @Volatile private var scanner: BarcodeScanner? = null
     private val busy = AtomicBoolean(false)
+
+    /** Last frame actually analyzed; gates `normal` mode. */
+    @Volatile private var lastAnalysisAt = 0L
+
+    /** Last reported raw-value set; gates `noDuplicates` mode. */
+    @Volatile private var lastRawValues: List<String?>? = null
+
+    /** Restriction in normalized upright coordinates; null decodes everywhere. */
+    @Volatile private var scanWindow: PlatformRect? = initialScanWindow
+
+    @Volatile private var imageRotation = 0
+    @Volatile private var frameWidth = 0
+    @Volatile private var frameHeight = 0
+
+    fun setScanWindow(window: PlatformRect?) {
+        scanWindow = window
+    }
 
     /**
      * Bumped every time repeating actually starts. Results tagged with an
@@ -58,24 +86,57 @@ internal class BarcodeAnalysisPipeline(
      */
     @Volatile private var generation = 0L
 
-    /** The analysis surface, created on first use; idempotent. */
-    fun target(sensorRotation: Int): Surface {
-        reader?.let { return it.surface }
+    /**
+     * The analysis surface, created on first use; idempotent per camera and
+     * size budget. Switching camera (or resolution) rebuilds the reader, so
+     * frames never keep flowing from a stale configuration.
+     */
+    @Synchronized
+    fun target(
+        sensorRotation: Int,
+        cameraId: String,
+        maxWidth: Int,
+        maxHeight: Int,
+    ): Surface {
+        reader?.let { existing ->
+            if (readerCameraId == cameraId &&
+                readerMaxWidth == maxWidth &&
+                readerMaxHeight == maxHeight
+            ) {
+                return existing.surface
+            }
+            try {
+                existing.close()
+            } catch (_: Throwable) {
+            }
+            reader = null
+        }
         val manager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
-        val camId = backCameraId(manager)
-        val map = manager.getCameraCharacteristics(camId)
+        val map = manager.getCameraCharacteristics(cameraId)
             .get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)!!
-        val size = bestSize(map.getOutputSizes(ImageFormat.YUV_420_888))
+        val size = bestSize(
+            map.getOutputSizes(ImageFormat.YUV_420_888),
+            maxWidth,
+            maxHeight,
+        )
         val newReader = ImageReader.newInstance(size.width, size.height, ImageFormat.YUV_420_888, 3)
         newReader.setOnImageAvailableListener({ rd -> onImageAvailable(rd, sensorRotation) }, handler)
+        imageRotation = sensorRotation
+        frameWidth = size.width
+        frameHeight = size.height
         scannerInstance()
         reader = newReader
+        readerCameraId = cameraId
+        readerMaxWidth = maxWidth
+        readerMaxHeight = maxHeight
         return newReader.surface
     }
 
     /** Repeating just started; anything decoded from before is stale. */
     fun newGeneration() {
         generation++
+        lastAnalysisAt = 0L
+        lastRawValues = null
     }
 
     fun shutdown() {
@@ -84,17 +145,35 @@ internal class BarcodeAnalysisPipeline(
         } catch (_: Throwable) {
         }
         reader = null
+        readerCameraId = null
+        // scannerInstance() is synchronized on this; shut the client down under
+        // the same lock so a concurrent lazy creation cannot race the close and
+        // leak one client.
+        val currentScanner = synchronized(this) {
+            val current = scanner
+            scanner = null
+            current
+        }
         try {
-            scanner?.close()
+            currentScanner?.close()
         } catch (_: Throwable) {
         }
-        scanner = null
         thread.quitSafely()
     }
 
-    /** Camera thread only. Reader and scanner are created and closed together. */
+    /**
+     * Camera thread and analysis thread both reach this (session setup and
+     * frame processing); make the lazy creation atomic or two clients are
+     * created and one is leaked.
+     */
+    @Synchronized
     private fun scannerInstance(): BarcodeScanner {
-        return scanner ?: BarcodeScanning.getClient().also { scanner = it }
+        scanner?.let { return it }
+        val created = BarcodeMapping.options(formats)?.let { options ->
+            BarcodeScanning.getClient(options)
+        } ?: BarcodeScanning.getClient()
+        scanner = created
+        return created
     }
 
     private fun onImageAvailable(rd: ImageReader, sensorRotation: Int) {
@@ -104,58 +183,129 @@ internal class BarcodeAnalysisPipeline(
         } catch (_: Throwable) {
         }
         val img = image ?: return
+        val now = SystemClock.elapsedRealtime()
+        if (detectionSpeed == PlatformDetectionSpeed.NORMAL &&
+            now - lastAnalysisAt < detectionTimeoutMs
+        ) {
+            img.close()
+            return
+        }
         if (!busy.compareAndSet(false, true)) {
             img.close()
             return
         }
+        if (detectionSpeed == PlatformDetectionSpeed.NORMAL) {
+            lastAnalysisAt = now
+        }
         val captured = generation
         try {
-            val input = InputImage.fromMediaImage(img, sensorRotation)
+            val input = if (invertImage) {
+                val nv21 = invertedNv21(img)
+                InputImage.fromByteBuffer(
+                    ByteBuffer.wrap(nv21),
+                    img.width,
+                    img.height,
+                    sensorRotation,
+                    InputImage.IMAGE_FORMAT_NV21,
+                )
+            } else {
+                InputImage.fromMediaImage(img, sensorRotation)
+            }
             val task = scannerInstance().process(input)
             task.addOnSuccessListener { barcodes ->
                 if (!isLive() || captured != generation) {
                     return@addOnSuccessListener
                 }
-                val mapped = barcodes.mapNotNull(::mapBarcode)
-                if (mapped.isNotEmpty() && isLive() && captured == generation) {
-                    mainHandler.post { onBarcodes(mapped) }
+                if (detectionSpeed == PlatformDetectionSpeed.NO_DUPLICATES) {
+                    val values = barcodes.mapNotNull { it.rawValue }.sorted()
+                    if (values == lastRawValues) {
+                        return@addOnSuccessListener
+                    }
+                    if (values.isNotEmpty()) {
+                        lastRawValues = values
+                    }
+                }
+                val mapped = barcodes.mapNotNull(BarcodeMapping::map)
+                val window = scanWindow
+                val visible = if (window == null) {
+                    mapped
+                } else {
+                    mapped.filter { isInsideWindow(it, window) }
+                }
+                if (visible.isNotEmpty() && isLive() && captured == generation) {
+                    mainHandler.post { onBarcodes(visible) }
                 }
             }.addOnCompleteListener {
-                img.close()
+                // A reader closed during an in-flight decode makes close()
+                // throw; never let that escape the callback.
+                try {
+                    img.close()
+                } catch (_: Throwable) {
+                }
                 busy.set(false)
             }
         } catch (t: Throwable) {
             Log.w(TAG, "analyzer error", t)
-            img.close()
+            try {
+                img.close()
+            } catch (_: Throwable) {
+            }
             busy.set(false)
         }
     }
 
-    private fun mapBarcode(barcode: Barcode): PlatformBarcode? {
-        val rawBytes = barcode.rawBytes
-        val text = barcode.rawValue
-        if (rawBytes == null && text == null) {
-            return null
+    /**
+     * Copy the YUV frame into inverted NV21 bytes. Inverting Y, U and V is
+     * equivalent to inverting RGB: luma flips and chroma mirrors around 128.
+     * Needed because ML Kit cannot decode from a YUV frame directly once the
+     * bytes are transformed.
+     */
+    private fun invertedNv21(image: android.media.Image): ByteArray {
+        val width = image.width
+        val height = image.height
+        val ySize = width * height
+        val out = ByteArray(ySize + ySize / 2)
+        val planes = image.planes
+
+        val yPlane = planes[0]
+        var position = 0
+        for (row in 0 until height) {
+            yPlane.buffer.position(row * yPlane.rowStride)
+            yPlane.buffer.get(out, position, width)
+            position += width
         }
-        return PlatformBarcode(mapFormat(barcode.format), rawBytes, text)
+
+        val uPlane = planes[1]
+        val vPlane = planes[2]
+        val chromaHeight = height / 2
+        val chromaWidth = width / 2
+        for (row in 0 until chromaHeight) {
+            for (col in 0 until chromaWidth) {
+                out[position++] = vPlane.buffer.get(row * vPlane.rowStride + col * vPlane.pixelStride)
+                out[position++] = uPlane.buffer.get(row * uPlane.rowStride + col * uPlane.pixelStride)
+            }
+        }
+        for (i in out.indices) {
+            out[i] = (255 - (out[i].toInt() and 0xFF)).toByte()
+        }
+        return out
     }
 
-    private fun mapFormat(format: Int): PlatformBarcodeFormat {
-        return when (format) {
-            Barcode.FORMAT_AZTEC -> PlatformBarcodeFormat.AZTEC
-            Barcode.FORMAT_CODABAR -> PlatformBarcodeFormat.CODABAR
-            Barcode.FORMAT_CODE_39 -> PlatformBarcodeFormat.CODE39
-            Barcode.FORMAT_CODE_93 -> PlatformBarcodeFormat.CODE93
-            Barcode.FORMAT_CODE_128 -> PlatformBarcodeFormat.CODE128
-            Barcode.FORMAT_DATA_MATRIX -> PlatformBarcodeFormat.DATA_MATRIX
-            Barcode.FORMAT_EAN_8 -> PlatformBarcodeFormat.EAN8
-            Barcode.FORMAT_EAN_13 -> PlatformBarcodeFormat.EAN13
-            Barcode.FORMAT_ITF -> PlatformBarcodeFormat.ITF
-            Barcode.FORMAT_PDF417 -> PlatformBarcodeFormat.PDF417
-            Barcode.FORMAT_QR_CODE -> PlatformBarcodeFormat.QR_CODE
-            Barcode.FORMAT_UPC_A -> PlatformBarcodeFormat.UPC_A
-            Barcode.FORMAT_UPC_E -> PlatformBarcodeFormat.UPC_E
-            else -> PlatformBarcodeFormat.UNKNOWN
+    private fun isInsideWindow(barcode: PlatformBarcode, window: PlatformRect): Boolean {
+        val corners = barcode.corners
+        if (corners.isNullOrEmpty()) {
+            return false
         }
+        val rotation = imageRotation
+        val width = if (rotation % 180 == 0) frameWidth else frameHeight
+        val height = if (rotation % 180 == 0) frameHeight else frameWidth
+        if (width <= 0 || height <= 0) {
+            return false
+        }
+        val left = window.left * width
+        val top = window.top * height
+        val right = window.right * width
+        val bottom = window.bottom * height
+        return corners.all { it.x >= left && it.x <= right && it.y >= top && it.y <= bottom }
     }
 }

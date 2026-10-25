@@ -10,9 +10,16 @@ export 'src/platform/policy.dart' show ScannerPolicy;
 export 'src/platform/types.dart'
     show
         BarcodeFormat,
+        BarcodeType,
+        CameraFacing,
+        CameraLensType,
+        DetectionSpeed,
+        ScanEvent,
         ScanResult,
         ScannerCapabilities,
+        ScannerConfig,
         ScannerException,
         ScannerState,
-        ScannerStatus;
+        ScannerStatus,
+        TorchState;
 export 'src/view.dart' show InstantBarcodeScannerView;

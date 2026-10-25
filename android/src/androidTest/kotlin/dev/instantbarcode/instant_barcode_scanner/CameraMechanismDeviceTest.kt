@@ -8,6 +8,9 @@ import android.view.Surface
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.rule.GrantPermissionRule
+import dev.instantbarcode.instant_barcode_scanner.pigeon.PlatformCameraFacing
+import dev.instantbarcode.instant_barcode_scanner.pigeon.PlatformCameraLensType
+import dev.instantbarcode.instant_barcode_scanner.pigeon.PlatformDetectionSpeed
 import dev.instantbarcode.instant_barcode_scanner.pigeon.PlatformSnapshot
 import dev.instantbarcode.instant_barcode_scanner.pigeon.PlatformState
 import java.util.concurrent.CompletableFuture
@@ -56,6 +59,18 @@ class CameraMechanismDeviceTest {
             onPreviewSize = { width, height -> texture.setDefaultBufferSize(width, height) },
             onStateChanged = {},
             onBarcodes = {},
+            selection = {
+                CameraSelection(PlatformCameraFacing.BACK, PlatformCameraLensType.ANY)
+            },
+            formats = emptyList(),
+            detectionSpeed = PlatformDetectionSpeed.NORMAL,
+            detectionTimeoutMs = 250,
+            initialScanWindow = null,
+            invertImage = false,
+            initialTorch = false,
+            initialZoom = null,
+            targetWidth = null,
+            targetHeight = null,
         )
     }
 

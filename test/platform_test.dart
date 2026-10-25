@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:instant_barcode_scanner/instant_barcode_scanner.dart';
@@ -18,7 +16,18 @@ void main() {
       'dev.flutter.pigeon.instant_barcode_scanner.ScannerHostApi';
   const flutterPrefix =
       'dev.flutter.pigeon.instant_barcode_scanner.ScannerFlutterApi';
-  const hostMethods = ['getTextureId', 'getCapabilities', 'driveTo', 'dispose'];
+  const hostMethods = [
+    'configure',
+    'getTextureId',
+    'getCapabilities',
+    'driveTo',
+    'switchCamera',
+    'setTorch',
+    'setZoom',
+    'updateScanWindow',
+    'analyzeImage',
+    'dispose',
+  ];
 
   void mockHost(
     String method,
@@ -88,6 +97,10 @@ void main() {
       (args) async => pigeon.PlatformCapabilities(
         supportsPark: false,
         supportsTrueClose: true,
+        supportsTorch: false,
+        supportsZoom: false,
+        minZoom: 1,
+        maxZoom: 1,
       ),
     );
 
@@ -130,6 +143,20 @@ void main() {
         pigeon.PlatformBarcode(
           format: pigeon.PlatformBarcodeFormat.aztec,
           rawBytes: raw,
+          displayValue: 'https://example.com',
+          valueType: pigeon.PlatformBarcodeValueType.url,
+          boundingBox: pigeon.PlatformRect(
+            left: 10,
+            top: 20,
+            right: 110,
+            bottom: 220,
+          ),
+          corners: <pigeon.PlatformPoint>[
+            pigeon.PlatformPoint(x: 10, y: 20),
+            pigeon.PlatformPoint(x: 110, y: 20),
+            pigeon.PlatformPoint(x: 110, y: 220),
+            pigeon.PlatformPoint(x: 10, y: 220),
+          ],
         ),
       ],
     ]);
@@ -138,6 +165,65 @@ void main() {
     expect(received!.single.format, BarcodeFormat.aztec);
     expect(received!.single.rawBytes, raw);
     expect(received!.single.text, isNull);
+    expect(received!.single.displayValue, 'https://example.com');
+    expect(received!.single.type, BarcodeType.url);
+    expect(received!.single.boundingBox, const Rect.fromLTRB(10, 20, 110, 220));
+    expect(received!.single.corners, const <Offset>[
+      Offset(10, 20),
+      Offset(110, 20),
+      Offset(110, 220),
+      Offset(10, 220),
+    ]);
+  });
+
+  test(
+    'scan window maps to a normalized pigeon rect and back to null',
+    () async {
+      final calls = <Object?>[];
+      mockHost('updateScanWindow', (args) async {
+        calls.add(args.first);
+        return null;
+      });
+
+      final platform = MethodChannelInstantBarcodeScannerPlatform();
+      await platform.updateScanWindow(const Rect.fromLTRB(0.1, 0.2, 0.9, 0.8));
+      await platform.updateScanWindow(null);
+
+      expect(calls, hasLength(2));
+      final rect = calls.first! as pigeon.PlatformRect;
+      expect(rect.left, 0.1);
+      expect(rect.top, 0.2);
+      expect(rect.right, 0.9);
+      expect(rect.bottom, 0.8);
+      expect(calls.last, isNull);
+    },
+  );
+
+  test('analyzeImage forwards the path and maps the decoded batch', () async {
+    String? requested;
+    mockHost('analyzeImage', (args) async {
+      requested = args.first! as String;
+      return <pigeon.PlatformBarcode>[
+        pigeon.PlatformBarcode(
+          format: pigeon.PlatformBarcodeFormat.qrCode,
+          rawBytes: Uint8List.fromList([1, 2, 3]),
+          text: 'hello',
+          displayValue: 'hello',
+          valueType: pigeon.PlatformBarcodeValueType.text,
+          boundingBox: null,
+          corners: null,
+        ),
+      ];
+    });
+
+    final platform = MethodChannelInstantBarcodeScannerPlatform();
+    final results = await platform.analyzeImage('/tmp/label.png');
+
+    expect(requested, '/tmp/label.png');
+    expect(results, hasLength(1));
+    expect(results.single.format, BarcodeFormat.qrCode);
+    expect(results.single.text, 'hello');
+    expect(results.single.type, BarcodeType.text);
   });
 
   test(
@@ -149,8 +235,13 @@ void main() {
         (args) async => pigeon.PlatformCapabilities(
           supportsPark: true,
           supportsTrueClose: true,
+          supportsTorch: true,
+          supportsZoom: true,
+          minZoom: 1,
+          maxZoom: 8,
         ),
       );
+      mockHost('configure', (args) async => null);
       mockHost(
         'driveTo',
         (args) async =>

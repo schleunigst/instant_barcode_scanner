@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show Rect;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:instant_barcode_scanner/instant_barcode_scanner.dart';
@@ -20,6 +21,23 @@ void main() {
   ) async {
     final scanner = InstantBarcodeScanner();
     await scanner.warmUp();
+    expect(scanner.state, ScannerState.parked);
+
+    // Decoding controls are live on the platform channel; the camera is
+    // parked here, so this exercises the stored-window path.
+    await scanner.updateScanWindow(const Rect.fromLTRB(0.1, 0.1, 0.9, 0.9));
+    await scanner.updateScanWindow(null);
+
+    await expectLater(
+      scanner.analyzeImage('/nonexistent/missing.png'),
+      throwsA(
+        isA<ScannerException>().having(
+          (error) => error.status.errorCode,
+          'errorCode',
+          'invalid_image',
+        ),
+      ),
+    );
     expect(scanner.state, ScannerState.parked);
 
     // Nothing decodable in front of the camera: the scan times out, and the

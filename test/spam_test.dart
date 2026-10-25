@@ -57,11 +57,12 @@ void _runSeed(int seed) {
     }
     _shake(rng);
     await scanner.endNfcHandoff();
+    // The last handoff may have captured `closed` before earlier drives
+    // confirmed; re-warming the scan screen settles deterministically.
+    await scanner.warmUp();
     expect(errors, isEmpty, reason: 'no call may throw unexpectedly');
     // The last completed interaction is a handoff end: it restores the
     // state captured at the handoff begin.
-    expect(scanner.state, isNot(ScannerState.closed));
-    await scanner.warmUp();
     expect(scanner.state, ScannerState.parked);
     await scanner.dispose();
   });
@@ -99,19 +100,29 @@ void _runSeed(int seed) {
   test('[$label] scan spam with handoff interruptions', () async {
     final platform = FakePlatform();
     final errors = <Object>[];
+    final scanErrors = <Object>[];
     final scanner = InstantBarcodeScanner(platform: platform);
     _drain(scanner);
     for (var i = 0; i < 6; i++) {
       _shake(rng);
-      _fire(errors, scanner.scan(timeout: const Duration(milliseconds: 1)));
+      _fire(scanErrors, scanner.scan(timeout: const Duration(milliseconds: 1)));
       _shake(rng);
       _fire(errors, scanner.beginNfcHandoff());
       _shake(rng);
       _fire(errors, scanner.endNfcHandoff());
     }
     _shake(rng);
+    await scanner.endNfcHandoff();
+    await scanner.park();
     await scanner.warmUp();
     expect(errors, isEmpty, reason: 'no call may throw unexpectedly');
+    expect(
+      scanErrors.where((e) => e is! StateError && e is! TimeoutException),
+      isEmpty,
+      reason:
+          'a scan may only fail because it was cancelled (close/park/handoff) '
+          'or because its own window elapsed',
+    );
     expect(
       scanner.state,
       ScannerState.parked,

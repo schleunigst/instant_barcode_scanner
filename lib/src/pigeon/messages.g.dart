@@ -135,12 +135,265 @@ enum PlatformBarcodeFormat {
   unknown,
 }
 
+/// Which way the selected camera faces.
+enum PlatformCameraFacing { back, front, external }
+
+/// A camera lens class on devices with multiple back/front cameras.
+enum PlatformCameraLensType { any, normal, wide, zoom }
+
+/// Semantic value kind decoded from the barcode.
+enum PlatformBarcodeValueType {
+  unknown,
+  contactInfo,
+  email,
+  isbn,
+  phone,
+  product,
+  sms,
+  text,
+  url,
+  wifi,
+  geo,
+  calendarEvent,
+  driverLicense,
+}
+
+/// How aggressively duplicate detections are suppressed.
+enum PlatformDetectionSpeed { noDuplicates, normal, unrestricted }
+
+/// A point in analysis-frame coordinates (upright, origin top-left).
+class PlatformPoint {
+  PlatformPoint({required this.x, required this.y});
+
+  double x;
+
+  double y;
+
+  List<Object?> _toList() {
+    return <Object?>[x, y];
+  }
+
+  Object encode() {
+    return _toList();
+  }
+
+  static PlatformPoint decode(Object result) {
+    result as List<Object?>;
+    return PlatformPoint(x: result[0]! as double, y: result[1]! as double);
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  bool operator ==(Object other) {
+    if (other is! PlatformPoint || other.runtimeType != runtimeType) {
+      return false;
+    }
+    if (identical(this, other)) {
+      return true;
+    }
+    return _deepEquals(x, other.x) && _deepEquals(y, other.y);
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  int get hashCode => _deepHash(<Object?>[runtimeType, ..._toList()]);
+
+  @override
+  String toString() {
+    return 'PlatformPoint(x: $x, y: $y)';
+  }
+}
+
+/// A rectangle in analysis-frame coordinates (upright, origin top-left).
+class PlatformRect {
+  PlatformRect({
+    required this.left,
+    required this.top,
+    required this.right,
+    required this.bottom,
+  });
+
+  double left;
+
+  double top;
+
+  double right;
+
+  double bottom;
+
+  List<Object?> _toList() {
+    return <Object?>[left, top, right, bottom];
+  }
+
+  Object encode() {
+    return _toList();
+  }
+
+  static PlatformRect decode(Object result) {
+    result as List<Object?>;
+    return PlatformRect(
+      left: result[0]! as double,
+      top: result[1]! as double,
+      right: result[2]! as double,
+      bottom: result[3]! as double,
+    );
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  bool operator ==(Object other) {
+    if (other is! PlatformRect || other.runtimeType != runtimeType) {
+      return false;
+    }
+    if (identical(this, other)) {
+      return true;
+    }
+    return _deepEquals(left, other.left) &&
+        _deepEquals(top, other.top) &&
+        _deepEquals(right, other.right) &&
+        _deepEquals(bottom, other.bottom);
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  int get hashCode => _deepHash(<Object?>[runtimeType, ..._toList()]);
+
+  @override
+  String toString() {
+    return 'PlatformRect(left: $left, top: $top, right: $right, bottom: $bottom)';
+  }
+}
+
+/// Immutable scanner configuration applied before the first command.
+///
+/// Hard format lists are fixed for the controller lifetime: changing them is
+/// a reconfiguration (dispose + new controller). [facing] and [lensType] may
+/// also change through `switchCamera`.
+class PlatformScannerConfig {
+  PlatformScannerConfig({
+    required this.facing,
+    required this.lensType,
+    required this.formats,
+    required this.torchEnabled,
+    this.initialZoom,
+    this.targetWidth,
+    this.targetHeight,
+    required this.detectionSpeed,
+    required this.detectionTimeoutMs,
+    required this.invertImage,
+  });
+
+  PlatformCameraFacing facing;
+
+  PlatformCameraLensType lensType;
+
+  /// Empty means every format the decoder supports.
+  List<PlatformBarcodeFormat> formats;
+
+  /// Whether the torch should come on when streaming starts.
+  bool torchEnabled;
+
+  /// Initial zoom, normalized 0..1 across the camera's zoom range.
+  double? initialZoom;
+
+  /// Preferred analysis/preview width, or null for the package default.
+  int? targetWidth;
+
+  /// Preferred analysis/preview height, or null for the package default.
+  int? targetHeight;
+
+  /// Duplicate-suppression policy for decoded frames.
+  PlatformDetectionSpeed detectionSpeed;
+
+  /// Minimum time between analyzed frames in `normal` mode.
+  int detectionTimeoutMs;
+
+  /// Invert frame colors before decoding (white-on-black symbols).
+  bool invertImage;
+
+  List<Object?> _toList() {
+    return <Object?>[
+      facing,
+      lensType,
+      formats,
+      torchEnabled,
+      initialZoom,
+      targetWidth,
+      targetHeight,
+      detectionSpeed,
+      detectionTimeoutMs,
+      invertImage,
+    ];
+  }
+
+  Object encode() {
+    return _toList();
+  }
+
+  static PlatformScannerConfig decode(Object result) {
+    result as List<Object?>;
+    return PlatformScannerConfig(
+      facing: result[0]! as PlatformCameraFacing,
+      lensType: result[1]! as PlatformCameraLensType,
+      formats: (result[2]! as List<Object?>).cast<PlatformBarcodeFormat>(),
+      torchEnabled: result[3]! as bool,
+      initialZoom: result[4] as double?,
+      targetWidth: result[5] as int?,
+      targetHeight: result[6] as int?,
+      detectionSpeed: result[7]! as PlatformDetectionSpeed,
+      detectionTimeoutMs: result[8]! as int,
+      invertImage: result[9]! as bool,
+    );
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  bool operator ==(Object other) {
+    if (other is! PlatformScannerConfig || other.runtimeType != runtimeType) {
+      return false;
+    }
+    if (identical(this, other)) {
+      return true;
+    }
+    return _deepEquals(facing, other.facing) &&
+        _deepEquals(lensType, other.lensType) &&
+        _deepEquals(formats, other.formats) &&
+        _deepEquals(torchEnabled, other.torchEnabled) &&
+        _deepEquals(initialZoom, other.initialZoom) &&
+        _deepEquals(targetWidth, other.targetWidth) &&
+        _deepEquals(targetHeight, other.targetHeight) &&
+        _deepEquals(detectionSpeed, other.detectionSpeed) &&
+        _deepEquals(detectionTimeoutMs, other.detectionTimeoutMs) &&
+        _deepEquals(invertImage, other.invertImage);
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  int get hashCode => _deepHash(<Object?>[runtimeType, ..._toList()]);
+
+  @override
+  String toString() {
+    return 'PlatformScannerConfig(facing: $facing, lensType: $lensType, formats: $formats, torchEnabled: $torchEnabled, initialZoom: $initialZoom, targetWidth: $targetWidth, targetHeight: $targetHeight, detectionSpeed: $detectionSpeed, detectionTimeoutMs: $detectionTimeoutMs, invertImage: $invertImage)';
+  }
+}
+
 /// A single decoded barcode.
 ///
 /// [rawBytes] is the payload exactly as encoded in the symbol, when the
 /// decoder can provide it. [text] is a best-effort lossy interpretation.
+/// [displayValue] is the human-readable form (for WiFi/contact/URL values),
+/// [valueType] is the semantic kind, and geometry is in upright analysis-frame
+/// coordinates.
 class PlatformBarcode {
-  PlatformBarcode({required this.format, this.rawBytes, this.text});
+  PlatformBarcode({
+    required this.format,
+    this.rawBytes,
+    this.text,
+    this.displayValue,
+    required this.valueType,
+    this.boundingBox,
+    this.corners,
+  });
 
   PlatformBarcodeFormat format;
 
@@ -148,8 +401,24 @@ class PlatformBarcode {
 
   String? text;
 
+  String? displayValue;
+
+  PlatformBarcodeValueType valueType;
+
+  PlatformRect? boundingBox;
+
+  List<PlatformPoint>? corners;
+
   List<Object?> _toList() {
-    return <Object?>[format, rawBytes, text];
+    return <Object?>[
+      format,
+      rawBytes,
+      text,
+      displayValue,
+      valueType,
+      boundingBox,
+      corners,
+    ];
   }
 
   Object encode() {
@@ -162,6 +431,10 @@ class PlatformBarcode {
       format: result[0]! as PlatformBarcodeFormat,
       rawBytes: result[1] as Uint8List?,
       text: result[2] as String?,
+      displayValue: result[3] as String?,
+      valueType: result[4]! as PlatformBarcodeValueType,
+      boundingBox: result[5] as PlatformRect?,
+      corners: (result[6] as List<Object?>?)?.cast<PlatformPoint>(),
     );
   }
 
@@ -176,7 +449,11 @@ class PlatformBarcode {
     }
     return _deepEquals(format, other.format) &&
         _deepEquals(rawBytes, other.rawBytes) &&
-        _deepEquals(text, other.text);
+        _deepEquals(text, other.text) &&
+        _deepEquals(displayValue, other.displayValue) &&
+        _deepEquals(valueType, other.valueType) &&
+        _deepEquals(boundingBox, other.boundingBox) &&
+        _deepEquals(corners, other.corners);
   }
 
   @override
@@ -185,7 +462,7 @@ class PlatformBarcode {
 
   @override
   String toString() {
-    return 'PlatformBarcode(format: $format, rawBytes: $rawBytes, text: $text)';
+    return 'PlatformBarcode(format: $format, rawBytes: $rawBytes, text: $text, displayValue: $displayValue, valueType: $valueType, boundingBox: $boundingBox, corners: $corners)';
   }
 }
 
@@ -245,6 +522,10 @@ class PlatformCapabilities {
   PlatformCapabilities({
     required this.supportsPark,
     required this.supportsTrueClose,
+    required this.supportsTorch,
+    required this.supportsZoom,
+    required this.minZoom,
+    required this.maxZoom,
   });
 
   /// Session config can be kept parked (device open, session configured,
@@ -254,8 +535,27 @@ class PlatformCapabilities {
   /// Release after `parked` truthfully closes the camera device.
   bool supportsTrueClose;
 
+  /// The selected camera has a controllable torch.
+  bool supportsTorch;
+
+  /// The selected camera supports optical/digital zoom control.
+  bool supportsZoom;
+
+  /// Minimum zoom ratio (usually 1.0).
+  double minZoom;
+
+  /// Maximum zoom ratio for the selected camera.
+  double maxZoom;
+
   List<Object?> _toList() {
-    return <Object?>[supportsPark, supportsTrueClose];
+    return <Object?>[
+      supportsPark,
+      supportsTrueClose,
+      supportsTorch,
+      supportsZoom,
+      minZoom,
+      maxZoom,
+    ];
   }
 
   Object encode() {
@@ -267,6 +567,10 @@ class PlatformCapabilities {
     return PlatformCapabilities(
       supportsPark: result[0]! as bool,
       supportsTrueClose: result[1]! as bool,
+      supportsTorch: result[2]! as bool,
+      supportsZoom: result[3]! as bool,
+      minZoom: result[4]! as double,
+      maxZoom: result[5]! as double,
     );
   }
 
@@ -280,7 +584,11 @@ class PlatformCapabilities {
       return true;
     }
     return _deepEquals(supportsPark, other.supportsPark) &&
-        _deepEquals(supportsTrueClose, other.supportsTrueClose);
+        _deepEquals(supportsTrueClose, other.supportsTrueClose) &&
+        _deepEquals(supportsTorch, other.supportsTorch) &&
+        _deepEquals(supportsZoom, other.supportsZoom) &&
+        _deepEquals(minZoom, other.minZoom) &&
+        _deepEquals(maxZoom, other.maxZoom);
   }
 
   @override
@@ -289,7 +597,7 @@ class PlatformCapabilities {
 
   @override
   String toString() {
-    return 'PlatformCapabilities(supportsPark: $supportsPark, supportsTrueClose: $supportsTrueClose)';
+    return 'PlatformCapabilities(supportsPark: $supportsPark, supportsTrueClose: $supportsTrueClose, supportsTorch: $supportsTorch, supportsZoom: $supportsZoom, minZoom: $minZoom, maxZoom: $maxZoom)';
   }
 }
 
@@ -306,14 +614,35 @@ class _PigeonCodec extends StandardMessageCodec {
     } else if (value is PlatformBarcodeFormat) {
       buffer.putUint8(130);
       writeValue(buffer, value.index);
-    } else if (value is PlatformBarcode) {
+    } else if (value is PlatformCameraFacing) {
       buffer.putUint8(131);
+      writeValue(buffer, value.index);
+    } else if (value is PlatformCameraLensType) {
+      buffer.putUint8(132);
+      writeValue(buffer, value.index);
+    } else if (value is PlatformBarcodeValueType) {
+      buffer.putUint8(133);
+      writeValue(buffer, value.index);
+    } else if (value is PlatformDetectionSpeed) {
+      buffer.putUint8(134);
+      writeValue(buffer, value.index);
+    } else if (value is PlatformPoint) {
+      buffer.putUint8(135);
+      writeValue(buffer, value.encode());
+    } else if (value is PlatformRect) {
+      buffer.putUint8(136);
+      writeValue(buffer, value.encode());
+    } else if (value is PlatformScannerConfig) {
+      buffer.putUint8(137);
+      writeValue(buffer, value.encode());
+    } else if (value is PlatformBarcode) {
+      buffer.putUint8(138);
       writeValue(buffer, value.encode());
     } else if (value is PlatformSnapshot) {
-      buffer.putUint8(132);
+      buffer.putUint8(139);
       writeValue(buffer, value.encode());
     } else if (value is PlatformCapabilities) {
-      buffer.putUint8(133);
+      buffer.putUint8(140);
       writeValue(buffer, value.encode());
     } else {
       super.writeValue(buffer, value);
@@ -330,10 +659,28 @@ class _PigeonCodec extends StandardMessageCodec {
         final value = readValue(buffer) as int?;
         return value == null ? null : PlatformBarcodeFormat.values[value];
       case 131:
-        return PlatformBarcode.decode(readValue(buffer)!);
+        final value = readValue(buffer) as int?;
+        return value == null ? null : PlatformCameraFacing.values[value];
       case 132:
-        return PlatformSnapshot.decode(readValue(buffer)!);
+        final value = readValue(buffer) as int?;
+        return value == null ? null : PlatformCameraLensType.values[value];
       case 133:
+        final value = readValue(buffer) as int?;
+        return value == null ? null : PlatformBarcodeValueType.values[value];
+      case 134:
+        final value = readValue(buffer) as int?;
+        return value == null ? null : PlatformDetectionSpeed.values[value];
+      case 135:
+        return PlatformPoint.decode(readValue(buffer)!);
+      case 136:
+        return PlatformRect.decode(readValue(buffer)!);
+      case 137:
+        return PlatformScannerConfig.decode(readValue(buffer)!);
+      case 138:
+        return PlatformBarcode.decode(readValue(buffer)!);
+      case 139:
+        return PlatformSnapshot.decode(readValue(buffer)!);
+      case 140:
         return PlatformCapabilities.decode(readValue(buffer)!);
       default:
         return super.readValueOfType(type, buffer);
@@ -365,6 +712,29 @@ class ScannerHostApi {
   static const MessageCodec<Object?> pigeonChannelCodec = _PigeonCodec();
 
   final String pigeonVar_messageChannelSuffix;
+
+  /// Apply the controller configuration. Called once before any other call
+  /// that needs camera hardware; the configuration is fixed for the
+  /// controller lifetime (except facing/lens through [switchCamera]).
+  Future<void> configure(PlatformScannerConfig config) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.instant_barcode_scanner.ScannerHostApi.configure$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[config],
+    );
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
+  }
 
   /// Texture id for the camera preview. The texture is created on first
   /// call and lives until [dispose].
@@ -426,6 +796,119 @@ class ScannerHostApi {
       isNullValid: false,
     );
     return pigeonVar_replyValue! as PlatformSnapshot;
+  }
+
+  /// Switch camera while preserving the current confirmed state (closed
+  /// stays closed, parked stays parked, live stays live).
+  Future<PlatformSnapshot> switchCamera(
+    PlatformCameraFacing facing,
+    PlatformCameraLensType lensType,
+  ) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.instant_barcode_scanner.ScannerHostApi.switchCamera$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[facing, lensType],
+    );
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: false,
+    );
+    return pigeonVar_replyValue! as PlatformSnapshot;
+  }
+
+  /// Turn the torch on/off while live. Fails when the camera has no flash.
+  Future<void> setTorch(bool enabled) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.instant_barcode_scanner.ScannerHostApi.setTorch$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[enabled],
+    );
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
+  }
+
+  /// Set the zoom ratio (device units, clamped by the platform).
+  Future<void> setZoom(double ratio) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.instant_barcode_scanner.ScannerHostApi.setZoom$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[ratio],
+    );
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
+  }
+
+  /// Restrict decoding to a rectangle normalized to 0..1 in upright
+  /// analysis-frame coordinates. Null clears the restriction.
+  Future<void> updateScanWindow(PlatformRect? window) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.instant_barcode_scanner.ScannerHostApi.updateScanWindow$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[window],
+    );
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
+  }
+
+  /// Decode barcodes from an image file on disk; no camera or permission
+  /// required. Applies the configured barcode formats.
+  Future<List<PlatformBarcode>> analyzeImage(String path) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.instant_barcode_scanner.ScannerHostApi.analyzeImage$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[path],
+    );
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: false,
+    );
+    return (pigeonVar_replyValue! as List<Object?>).cast<PlatformBarcode>();
   }
 
   /// Reset the plugin: shut the mechanism down, release all resources and

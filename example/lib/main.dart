@@ -116,6 +116,30 @@ class _ScannerPageState extends State<ScannerPage> {
     }
   }
 
+  Future<void> _switchCamera() async {
+    try {
+      await _scanner.switchCamera();
+    } catch (error) {
+      _setError('switchCamera failed: $error');
+    }
+  }
+
+  Future<void> _toggleTorch() async {
+    try {
+      await _scanner.toggleTorch();
+    } catch (error) {
+      _setError('torch failed: $error');
+    }
+  }
+
+  Future<void> _setZoom(double scale) async {
+    try {
+      await _scanner.setZoom(scale);
+    } catch (error) {
+      _setError('zoom failed: $error');
+    }
+  }
+
   Future<void> _endHandoff() async {
     try {
       await _scanner.endNfcHandoff();
@@ -200,7 +224,41 @@ class _ScannerPageState extends State<ScannerPage> {
                       onPressed: _endHandoff,
                       child: const Text('End handoff'),
                     ),
+                    OutlinedButton(
+                      onPressed: _switchCamera,
+                      child: const Text('Switch camera'),
+                    ),
+                    ValueListenableBuilder<TorchState>(
+                      valueListenable: _scanner.torchState,
+                      builder: (context, torch, _) => OutlinedButton.icon(
+                        onPressed: torch == TorchState.unavailable
+                            ? null
+                            : _toggleTorch,
+                        icon: Icon(
+                          torch == TorchState.on
+                              ? Icons.flash_on
+                              : Icons.flash_off,
+                        ),
+                        label: Text(
+                          torch == TorchState.unavailable
+                              ? 'No torch'
+                              : 'Torch',
+                        ),
+                      ),
+                    ),
                   ],
+                ),
+                ValueListenableBuilder<double>(
+                  valueListenable: _scanner.zoomScale,
+                  builder: (context, zoom, _) => Row(
+                    children: [
+                      const Text('Zoom'),
+                      Expanded(
+                        child: Slider(value: zoom, onChanged: _setZoom),
+                      ),
+                      Text(zoom.toStringAsFixed(2)),
+                    ],
+                  ),
                 ),
               ],
             ),

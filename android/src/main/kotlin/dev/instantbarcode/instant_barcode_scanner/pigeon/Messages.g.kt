@@ -247,18 +247,275 @@ enum class PlatformBarcodeFormat(val raw: Int) {
   }
 }
 
+/** Which way the selected camera faces. */
+enum class PlatformCameraFacing(val raw: Int) {
+  BACK(0),
+  FRONT(1),
+  EXTERNAL(2);
+
+  companion object {
+    fun ofRaw(raw: Int): PlatformCameraFacing? {
+      return values().firstOrNull { it.raw == raw }
+    }
+  }
+}
+
+/** A camera lens class on devices with multiple back/front cameras. */
+enum class PlatformCameraLensType(val raw: Int) {
+  ANY(0),
+  NORMAL(1),
+  WIDE(2),
+  ZOOM(3);
+
+  companion object {
+    fun ofRaw(raw: Int): PlatformCameraLensType? {
+      return values().firstOrNull { it.raw == raw }
+    }
+  }
+}
+
+/** Semantic value kind decoded from the barcode. */
+enum class PlatformBarcodeValueType(val raw: Int) {
+  UNKNOWN(0),
+  CONTACT_INFO(1),
+  EMAIL(2),
+  ISBN(3),
+  PHONE(4),
+  PRODUCT(5),
+  SMS(6),
+  TEXT(7),
+  URL(8),
+  WIFI(9),
+  GEO(10),
+  CALENDAR_EVENT(11),
+  DRIVER_LICENSE(12);
+
+  companion object {
+    fun ofRaw(raw: Int): PlatformBarcodeValueType? {
+      return values().firstOrNull { it.raw == raw }
+    }
+  }
+}
+
+/** How aggressively duplicate detections are suppressed. */
+enum class PlatformDetectionSpeed(val raw: Int) {
+  NO_DUPLICATES(0),
+  NORMAL(1),
+  UNRESTRICTED(2);
+
+  companion object {
+    fun ofRaw(raw: Int): PlatformDetectionSpeed? {
+      return values().firstOrNull { it.raw == raw }
+    }
+  }
+}
+
+/**
+ * A point in analysis-frame coordinates (upright, origin top-left).
+ *
+ * Generated class from Pigeon that represents data sent in messages.
+ */
+data class PlatformPoint (
+  val x: Double,
+  val y: Double
+)
+ {
+  companion object {
+    fun fromList(pigeonVar_list: List<Any?>): PlatformPoint {
+      val x = pigeonVar_list[0] as Double
+      val y = pigeonVar_list[1] as Double
+      return PlatformPoint(x, y)
+    }
+  }
+  fun toList(): List<Any?> {
+    return listOf(
+      x,
+      y,
+    )
+  }
+  override fun equals(other: Any?): Boolean {
+    if (other == null || other.javaClass != javaClass) {
+      return false
+    }
+    if (this === other) {
+      return true
+    }
+    val other = other as PlatformPoint
+    return MessagesPigeonUtils.deepEquals(this.x, other.x) && MessagesPigeonUtils.deepEquals(this.y, other.y)
+  }
+
+  override fun hashCode(): Int {
+    var result = javaClass.hashCode()
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.x)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.y)
+    return result
+  }
+  override fun toString(): String {
+    return "PlatformPoint(x=$x, y=$y)"
+  }
+}
+
+/**
+ * A rectangle in analysis-frame coordinates (upright, origin top-left).
+ *
+ * Generated class from Pigeon that represents data sent in messages.
+ */
+data class PlatformRect (
+  val left: Double,
+  val top: Double,
+  val right: Double,
+  val bottom: Double
+)
+ {
+  companion object {
+    fun fromList(pigeonVar_list: List<Any?>): PlatformRect {
+      val left = pigeonVar_list[0] as Double
+      val top = pigeonVar_list[1] as Double
+      val right = pigeonVar_list[2] as Double
+      val bottom = pigeonVar_list[3] as Double
+      return PlatformRect(left, top, right, bottom)
+    }
+  }
+  fun toList(): List<Any?> {
+    return listOf(
+      left,
+      top,
+      right,
+      bottom,
+    )
+  }
+  override fun equals(other: Any?): Boolean {
+    if (other == null || other.javaClass != javaClass) {
+      return false
+    }
+    if (this === other) {
+      return true
+    }
+    val other = other as PlatformRect
+    return MessagesPigeonUtils.deepEquals(this.left, other.left) && MessagesPigeonUtils.deepEquals(this.top, other.top) && MessagesPigeonUtils.deepEquals(this.right, other.right) && MessagesPigeonUtils.deepEquals(this.bottom, other.bottom)
+  }
+
+  override fun hashCode(): Int {
+    var result = javaClass.hashCode()
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.left)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.top)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.right)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.bottom)
+    return result
+  }
+  override fun toString(): String {
+    return "PlatformRect(left=$left, top=$top, right=$right, bottom=$bottom)"
+  }
+}
+
+/**
+ * Immutable scanner configuration applied before the first command.
+ *
+ * Hard format lists are fixed for the controller lifetime: changing them is
+ * a reconfiguration (dispose + new controller). [facing] and [lensType] may
+ * also change through `switchCamera`.
+ *
+ * Generated class from Pigeon that represents data sent in messages.
+ */
+data class PlatformScannerConfig (
+  val facing: PlatformCameraFacing,
+  val lensType: PlatformCameraLensType,
+  /** Empty means every format the decoder supports. */
+  val formats: List<PlatformBarcodeFormat>,
+  /** Whether the torch should come on when streaming starts. */
+  val torchEnabled: Boolean,
+  /** Initial zoom, normalized 0..1 across the camera's zoom range. */
+  val initialZoom: Double? = null,
+  /** Preferred analysis/preview width, or null for the package default. */
+  val targetWidth: Long? = null,
+  /** Preferred analysis/preview height, or null for the package default. */
+  val targetHeight: Long? = null,
+  /** Duplicate-suppression policy for decoded frames. */
+  val detectionSpeed: PlatformDetectionSpeed,
+  /** Minimum time between analyzed frames in `normal` mode. */
+  val detectionTimeoutMs: Long,
+  /** Invert frame colors before decoding (white-on-black symbols). */
+  val invertImage: Boolean
+)
+ {
+  companion object {
+    fun fromList(pigeonVar_list: List<Any?>): PlatformScannerConfig {
+      val facing = pigeonVar_list[0] as PlatformCameraFacing
+      val lensType = pigeonVar_list[1] as PlatformCameraLensType
+      val formats = pigeonVar_list[2] as List<PlatformBarcodeFormat>
+      val torchEnabled = pigeonVar_list[3] as Boolean
+      val initialZoom = pigeonVar_list[4] as Double?
+      val targetWidth = pigeonVar_list[5] as Long?
+      val targetHeight = pigeonVar_list[6] as Long?
+      val detectionSpeed = pigeonVar_list[7] as PlatformDetectionSpeed
+      val detectionTimeoutMs = pigeonVar_list[8] as Long
+      val invertImage = pigeonVar_list[9] as Boolean
+      return PlatformScannerConfig(facing, lensType, formats, torchEnabled, initialZoom, targetWidth, targetHeight, detectionSpeed, detectionTimeoutMs, invertImage)
+    }
+  }
+  fun toList(): List<Any?> {
+    return listOf(
+      facing,
+      lensType,
+      formats,
+      torchEnabled,
+      initialZoom,
+      targetWidth,
+      targetHeight,
+      detectionSpeed,
+      detectionTimeoutMs,
+      invertImage,
+    )
+  }
+  override fun equals(other: Any?): Boolean {
+    if (other == null || other.javaClass != javaClass) {
+      return false
+    }
+    if (this === other) {
+      return true
+    }
+    val other = other as PlatformScannerConfig
+    return MessagesPigeonUtils.deepEquals(this.facing, other.facing) && MessagesPigeonUtils.deepEquals(this.lensType, other.lensType) && MessagesPigeonUtils.deepEquals(this.formats, other.formats) && MessagesPigeonUtils.deepEquals(this.torchEnabled, other.torchEnabled) && MessagesPigeonUtils.deepEquals(this.initialZoom, other.initialZoom) && MessagesPigeonUtils.deepEquals(this.targetWidth, other.targetWidth) && MessagesPigeonUtils.deepEquals(this.targetHeight, other.targetHeight) && MessagesPigeonUtils.deepEquals(this.detectionSpeed, other.detectionSpeed) && MessagesPigeonUtils.deepEquals(this.detectionTimeoutMs, other.detectionTimeoutMs) && MessagesPigeonUtils.deepEquals(this.invertImage, other.invertImage)
+  }
+
+  override fun hashCode(): Int {
+    var result = javaClass.hashCode()
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.facing)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.lensType)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.formats)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.torchEnabled)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.initialZoom)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.targetWidth)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.targetHeight)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.detectionSpeed)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.detectionTimeoutMs)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.invertImage)
+    return result
+  }
+  override fun toString(): String {
+    return "PlatformScannerConfig(facing=$facing, lensType=$lensType, formats=$formats, torchEnabled=$torchEnabled, initialZoom=$initialZoom, targetWidth=$targetWidth, targetHeight=$targetHeight, detectionSpeed=$detectionSpeed, detectionTimeoutMs=$detectionTimeoutMs, invertImage=$invertImage)"
+  }
+}
+
 /**
  * A single decoded barcode.
  *
  * [rawBytes] is the payload exactly as encoded in the symbol, when the
  * decoder can provide it. [text] is a best-effort lossy interpretation.
+ * [displayValue] is the human-readable form (for WiFi/contact/URL values),
+ * [valueType] is the semantic kind, and geometry is in upright analysis-frame
+ * coordinates.
  *
  * Generated class from Pigeon that represents data sent in messages.
  */
 data class PlatformBarcode (
   val format: PlatformBarcodeFormat,
   val rawBytes: ByteArray? = null,
-  val text: String? = null
+  val text: String? = null,
+  val displayValue: String? = null,
+  val valueType: PlatformBarcodeValueType,
+  val boundingBox: PlatformRect? = null,
+  val corners: List<PlatformPoint>? = null
 )
  {
   companion object {
@@ -266,7 +523,11 @@ data class PlatformBarcode (
       val format = pigeonVar_list[0] as PlatformBarcodeFormat
       val rawBytes = pigeonVar_list[1] as ByteArray?
       val text = pigeonVar_list[2] as String?
-      return PlatformBarcode(format, rawBytes, text)
+      val displayValue = pigeonVar_list[3] as String?
+      val valueType = pigeonVar_list[4] as PlatformBarcodeValueType
+      val boundingBox = pigeonVar_list[5] as PlatformRect?
+      val corners = pigeonVar_list[6] as List<PlatformPoint>?
+      return PlatformBarcode(format, rawBytes, text, displayValue, valueType, boundingBox, corners)
     }
   }
   fun toList(): List<Any?> {
@@ -274,6 +535,10 @@ data class PlatformBarcode (
       format,
       rawBytes,
       text,
+      displayValue,
+      valueType,
+      boundingBox,
+      corners,
     )
   }
   override fun equals(other: Any?): Boolean {
@@ -284,7 +549,7 @@ data class PlatformBarcode (
       return true
     }
     val other = other as PlatformBarcode
-    return MessagesPigeonUtils.deepEquals(this.format, other.format) && MessagesPigeonUtils.deepEquals(this.rawBytes, other.rawBytes) && MessagesPigeonUtils.deepEquals(this.text, other.text)
+    return MessagesPigeonUtils.deepEquals(this.format, other.format) && MessagesPigeonUtils.deepEquals(this.rawBytes, other.rawBytes) && MessagesPigeonUtils.deepEquals(this.text, other.text) && MessagesPigeonUtils.deepEquals(this.displayValue, other.displayValue) && MessagesPigeonUtils.deepEquals(this.valueType, other.valueType) && MessagesPigeonUtils.deepEquals(this.boundingBox, other.boundingBox) && MessagesPigeonUtils.deepEquals(this.corners, other.corners)
   }
 
   override fun hashCode(): Int {
@@ -292,10 +557,14 @@ data class PlatformBarcode (
     result = 31 * result + MessagesPigeonUtils.deepHash(this.format)
     result = 31 * result + MessagesPigeonUtils.deepHash(this.rawBytes)
     result = 31 * result + MessagesPigeonUtils.deepHash(this.text)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.displayValue)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.valueType)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.boundingBox)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.corners)
     return result
   }
   override fun toString(): String {
-    return "PlatformBarcode(format=$format, rawBytes=${rawBytes?.contentToString()}, text=$text)"
+    return "PlatformBarcode(format=$format, rawBytes=${rawBytes?.contentToString()}, text=$text, displayValue=$displayValue, valueType=$valueType, boundingBox=$boundingBox, corners=$corners)"
   }
 }
 
@@ -360,20 +629,36 @@ data class PlatformCapabilities (
    */
   val supportsPark: Boolean,
   /** Release after `parked` truthfully closes the camera device. */
-  val supportsTrueClose: Boolean
+  val supportsTrueClose: Boolean,
+  /** The selected camera has a controllable torch. */
+  val supportsTorch: Boolean,
+  /** The selected camera supports optical/digital zoom control. */
+  val supportsZoom: Boolean,
+  /** Minimum zoom ratio (usually 1.0). */
+  val minZoom: Double,
+  /** Maximum zoom ratio for the selected camera. */
+  val maxZoom: Double
 )
  {
   companion object {
     fun fromList(pigeonVar_list: List<Any?>): PlatformCapabilities {
       val supportsPark = pigeonVar_list[0] as Boolean
       val supportsTrueClose = pigeonVar_list[1] as Boolean
-      return PlatformCapabilities(supportsPark, supportsTrueClose)
+      val supportsTorch = pigeonVar_list[2] as Boolean
+      val supportsZoom = pigeonVar_list[3] as Boolean
+      val minZoom = pigeonVar_list[4] as Double
+      val maxZoom = pigeonVar_list[5] as Double
+      return PlatformCapabilities(supportsPark, supportsTrueClose, supportsTorch, supportsZoom, minZoom, maxZoom)
     }
   }
   fun toList(): List<Any?> {
     return listOf(
       supportsPark,
       supportsTrueClose,
+      supportsTorch,
+      supportsZoom,
+      minZoom,
+      maxZoom,
     )
   }
   override fun equals(other: Any?): Boolean {
@@ -384,17 +669,21 @@ data class PlatformCapabilities (
       return true
     }
     val other = other as PlatformCapabilities
-    return MessagesPigeonUtils.deepEquals(this.supportsPark, other.supportsPark) && MessagesPigeonUtils.deepEquals(this.supportsTrueClose, other.supportsTrueClose)
+    return MessagesPigeonUtils.deepEquals(this.supportsPark, other.supportsPark) && MessagesPigeonUtils.deepEquals(this.supportsTrueClose, other.supportsTrueClose) && MessagesPigeonUtils.deepEquals(this.supportsTorch, other.supportsTorch) && MessagesPigeonUtils.deepEquals(this.supportsZoom, other.supportsZoom) && MessagesPigeonUtils.deepEquals(this.minZoom, other.minZoom) && MessagesPigeonUtils.deepEquals(this.maxZoom, other.maxZoom)
   }
 
   override fun hashCode(): Int {
     var result = javaClass.hashCode()
     result = 31 * result + MessagesPigeonUtils.deepHash(this.supportsPark)
     result = 31 * result + MessagesPigeonUtils.deepHash(this.supportsTrueClose)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.supportsTorch)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.supportsZoom)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.minZoom)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.maxZoom)
     return result
   }
   override fun toString(): String {
-    return "PlatformCapabilities(supportsPark=$supportsPark, supportsTrueClose=$supportsTrueClose)"
+    return "PlatformCapabilities(supportsPark=$supportsPark, supportsTrueClose=$supportsTrueClose, supportsTorch=$supportsTorch, supportsZoom=$supportsZoom, minZoom=$minZoom, maxZoom=$maxZoom)"
   }
 }
 private open class MessagesPigeonCodec : StandardMessageCodec() {
@@ -411,16 +700,51 @@ private open class MessagesPigeonCodec : StandardMessageCodec() {
         }
       }
       131.toByte() -> {
+        return (readValue(buffer) as Long?)?.let {
+          PlatformCameraFacing.ofRaw(it.toInt())
+        }
+      }
+      132.toByte() -> {
+        return (readValue(buffer) as Long?)?.let {
+          PlatformCameraLensType.ofRaw(it.toInt())
+        }
+      }
+      133.toByte() -> {
+        return (readValue(buffer) as Long?)?.let {
+          PlatformBarcodeValueType.ofRaw(it.toInt())
+        }
+      }
+      134.toByte() -> {
+        return (readValue(buffer) as Long?)?.let {
+          PlatformDetectionSpeed.ofRaw(it.toInt())
+        }
+      }
+      135.toByte() -> {
+        return (readValue(buffer) as? List<Any?>)?.let {
+          PlatformPoint.fromList(it)
+        }
+      }
+      136.toByte() -> {
+        return (readValue(buffer) as? List<Any?>)?.let {
+          PlatformRect.fromList(it)
+        }
+      }
+      137.toByte() -> {
+        return (readValue(buffer) as? List<Any?>)?.let {
+          PlatformScannerConfig.fromList(it)
+        }
+      }
+      138.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
           PlatformBarcode.fromList(it)
         }
       }
-      132.toByte() -> {
+      139.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
           PlatformSnapshot.fromList(it)
         }
       }
-      133.toByte() -> {
+      140.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
           PlatformCapabilities.fromList(it)
         }
@@ -438,16 +762,44 @@ private open class MessagesPigeonCodec : StandardMessageCodec() {
         stream.write(130)
         writeValue(stream, value.raw.toLong())
       }
-      is PlatformBarcode -> {
+      is PlatformCameraFacing -> {
         stream.write(131)
+        writeValue(stream, value.raw.toLong())
+      }
+      is PlatformCameraLensType -> {
+        stream.write(132)
+        writeValue(stream, value.raw.toLong())
+      }
+      is PlatformBarcodeValueType -> {
+        stream.write(133)
+        writeValue(stream, value.raw.toLong())
+      }
+      is PlatformDetectionSpeed -> {
+        stream.write(134)
+        writeValue(stream, value.raw.toLong())
+      }
+      is PlatformPoint -> {
+        stream.write(135)
+        writeValue(stream, value.toList())
+      }
+      is PlatformRect -> {
+        stream.write(136)
+        writeValue(stream, value.toList())
+      }
+      is PlatformScannerConfig -> {
+        stream.write(137)
+        writeValue(stream, value.toList())
+      }
+      is PlatformBarcode -> {
+        stream.write(138)
         writeValue(stream, value.toList())
       }
       is PlatformSnapshot -> {
-        stream.write(132)
+        stream.write(139)
         writeValue(stream, value.toList())
       }
       is PlatformCapabilities -> {
-        stream.write(133)
+        stream.write(140)
         writeValue(stream, value.toList())
       }
       else -> super.writeValue(stream, value)
@@ -470,6 +822,12 @@ private open class MessagesPigeonCodec : StandardMessageCodec() {
  */
 interface ScannerHostApi {
   /**
+   * Apply the controller configuration. Called once before any other call
+   * that needs camera hardware; the configuration is fixed for the
+   * controller lifetime (except facing/lens through [switchCamera]).
+   */
+  suspend fun configure(config: PlatformScannerConfig)
+  /**
    * Texture id for the camera preview. The texture is created on first
    * call and lives until [dispose].
    */
@@ -477,6 +835,25 @@ interface ScannerHostApi {
   suspend fun getCapabilities(): PlatformCapabilities
   /** Drive the mechanism toward [target]. */
   suspend fun driveTo(target: PlatformState): PlatformSnapshot
+  /**
+   * Switch camera while preserving the current confirmed state (closed
+   * stays closed, parked stays parked, live stays live).
+   */
+  suspend fun switchCamera(facing: PlatformCameraFacing, lensType: PlatformCameraLensType): PlatformSnapshot
+  /** Turn the torch on/off while live. Fails when the camera has no flash. */
+  suspend fun setTorch(enabled: Boolean)
+  /** Set the zoom ratio (device units, clamped by the platform). */
+  suspend fun setZoom(ratio: Double)
+  /**
+   * Restrict decoding to a rectangle normalized to 0..1 in upright
+   * analysis-frame coordinates. Null clears the restriction.
+   */
+  suspend fun updateScanWindow(window: PlatformRect?)
+  /**
+   * Decode barcodes from an image file on disk; no camera or permission
+   * required. Applies the configured barcode formats.
+   */
+  suspend fun analyzeImage(path: String): List<PlatformBarcode>
   /**
    * Reset the plugin: shut the mechanism down, release all resources and
    * return to the initial state. A new session can follow this call; the
@@ -495,6 +872,26 @@ interface ScannerHostApi {
     @JvmOverloads
     fun setUp(binaryMessenger: BinaryMessenger, api: ScannerHostApi?, messageChannelSuffix: String = "") {
       val separatedMessageChannelSuffix = if (messageChannelSuffix.isNotEmpty()) ".$messageChannelSuffix" else ""
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.instant_barcode_scanner.ScannerHostApi.configure$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val configArg = args[0] as PlatformScannerConfig
+            CoroutineScope(Dispatchers.Main).launch {
+              val wrapped: List<Any?> = try {
+                api.configure(configArg)
+                listOf(null)
+              } catch (exception: Throwable) {
+                MessagesPigeonUtils.wrapError(exception)
+              }
+              reply.reply(wrapped)
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
       run {
         val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.instant_barcode_scanner.ScannerHostApi.getTextureId$separatedMessageChannelSuffix", codec)
         if (api != null) {
@@ -538,6 +935,105 @@ interface ScannerHostApi {
             CoroutineScope(Dispatchers.Main).launch {
               val wrapped: List<Any?> = try {
                 listOf(api.driveTo(targetArg))
+              } catch (exception: Throwable) {
+                MessagesPigeonUtils.wrapError(exception)
+              }
+              reply.reply(wrapped)
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.instant_barcode_scanner.ScannerHostApi.switchCamera$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val facingArg = args[0] as PlatformCameraFacing
+            val lensTypeArg = args[1] as PlatformCameraLensType
+            CoroutineScope(Dispatchers.Main).launch {
+              val wrapped: List<Any?> = try {
+                listOf(api.switchCamera(facingArg, lensTypeArg))
+              } catch (exception: Throwable) {
+                MessagesPigeonUtils.wrapError(exception)
+              }
+              reply.reply(wrapped)
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.instant_barcode_scanner.ScannerHostApi.setTorch$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val enabledArg = args[0] as Boolean
+            CoroutineScope(Dispatchers.Main).launch {
+              val wrapped: List<Any?> = try {
+                api.setTorch(enabledArg)
+                listOf(null)
+              } catch (exception: Throwable) {
+                MessagesPigeonUtils.wrapError(exception)
+              }
+              reply.reply(wrapped)
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.instant_barcode_scanner.ScannerHostApi.setZoom$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val ratioArg = args[0] as Double
+            CoroutineScope(Dispatchers.Main).launch {
+              val wrapped: List<Any?> = try {
+                api.setZoom(ratioArg)
+                listOf(null)
+              } catch (exception: Throwable) {
+                MessagesPigeonUtils.wrapError(exception)
+              }
+              reply.reply(wrapped)
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.instant_barcode_scanner.ScannerHostApi.updateScanWindow$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val windowArg = args[0] as PlatformRect?
+            CoroutineScope(Dispatchers.Main).launch {
+              val wrapped: List<Any?> = try {
+                api.updateScanWindow(windowArg)
+                listOf(null)
+              } catch (exception: Throwable) {
+                MessagesPigeonUtils.wrapError(exception)
+              }
+              reply.reply(wrapped)
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.instant_barcode_scanner.ScannerHostApi.analyzeImage$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val pathArg = args[0] as String
+            CoroutineScope(Dispatchers.Main).launch {
+              val wrapped: List<Any?> = try {
+                listOf(api.analyzeImage(pathArg))
               } catch (exception: Throwable) {
                 MessagesPigeonUtils.wrapError(exception)
               }

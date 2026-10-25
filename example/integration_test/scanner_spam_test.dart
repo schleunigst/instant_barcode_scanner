@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:instant_barcode_scanner/instant_barcode_scanner.dart';
 
@@ -26,7 +28,11 @@ void main() {
       final leaving = scanner;
       final disposed = leaving.dispose();
       scanner = InstantBarcodeScanner();
-      scanner.warmUp();
+      // Fire-and-forget on purpose: a later iteration may dispose this
+      // controller before the queued warmUp starts, which completes with a
+      // StateError by contract. Apps should observe fire-and-forget errors;
+      // this harness only cares about the settled state.
+      unawaited(scanner.warmUp().catchError((Object _) {}));
       track();
       await disposed;
     }

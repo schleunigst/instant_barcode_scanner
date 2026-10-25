@@ -40,13 +40,21 @@ seconds after your last read (so back-to-back scans stay hot), `parked` to
 `closed` after a longer idle. `live` is spent only while a read can
 actually happen; the seconds in between are parked, not live.
 
-> Status: `0.1.0`, early development. APIs may change between 0.x releases.
+> Status: early development. The current baseline is `0.1.0`; camera controls,
+> richer decoding, and preview improvements are unreleased. APIs may change
+> between 0.x releases.
 
 ## Install
 
+The package is not on pub.dev yet. Until the first release, depend on the
+repository:
+
 ```yaml
 dependencies:
-  instant_barcode_scanner: ^0.1.0
+  instant_barcode_scanner:
+    git:
+      url: https://github.com/schleunigst/instant_barcode_scanner.git
+      ref: main
 ```
 
 Requires Android SDK 24 or newer. Your app declares the camera permission
@@ -77,6 +85,11 @@ try {
 // that arrive after a scan() timed out.
 scanner.scans.listen((result) { /* ... */ });
 
+// Frame batches (every barcode ML Kit found in one analyzed frame):
+scanner.scanEvents.listen((event) {
+  print('${event.barcodes.length} barcode(s) in this frame');
+});
+
 // Before an NFC handoff: this completes only once the camera HAL reports
 // the device available again, so it is safe to open the reader right after.
 await scanner.beginNfcHandoff();
@@ -99,6 +112,82 @@ final scanner = InstantBarcodeScanner(
   ),
 );
 ```
+
+### Camera configuration and controls
+
+Camera choice, formats, and initial torch/zoom are fixed when the controller
+is created; changing them means creating a new controller. `switchCamera()`
+is the exception: it changes facing/lens live and preserves the confirmed
+state (live stays live, parked stays parked, closed stays closed).
+
+```dart
+import 'dart:ui' show Size;
+
+final scanner = InstantBarcodeScanner(
+  config: const ScannerConfig(
+    facing: CameraFacing.back,
+    lensType: CameraLensType.wide,          // any | normal | wide | zoom
+    formats: [BarcodeFormat.qrCode, BarcodeFormat.aztec],
+    torchEnabled: false,
+    initialZoom: 0.0,                       // normalized 0..1
+    cameraResolution: Size(1280, 720),      // analysis/preview budget
+    detectionSpeed: DetectionSpeed.normal,  // noDuplicates | normal | unrestricted
+    detectionTimeout: Duration(milliseconds: 250),
+    invertImage: false,                     // white-on-black symbols
+  ),
+);
+
+await scanner.warmUp();
+
+await scanner.switchCamera();               // toggle back/front
+await scanner.switchCamera(facing: CameraFacing.front,
+                           lensType: CameraLensType.normal);
+
+await scanner.setTorch(true);               // live only
+await scanner.toggleTorch();
+await scanner.setZoom(0.5);                 // normalized 0..1
+await scanner.resetZoom();                  // widest
+
+scanner.torchState.addListener(() {
+  print(scanner.torchState.value);          // off | on | unavailable
+});
+scanner.zoomScale.addListener(() {
+  print(scanner.zoomScale.value);           // 0..1
+});
+```
+
+The torch is a live-only control and goes off whenever streaming stops
+(park, close, background). If the selected camera has no flash,
+`torchState` is `unavailable`. Symbology filters are applied by the decoder;
+an empty `formats` list means every format ML Kit supports. Changing
+formats is a reconfiguration: dispose the controller and create a new one.
+
+### Decoding behavior
+
+`detectionSpeed` trades CPU for latency:
+
+- `normal` (default) analyzes at most one frame per `detectionTimeout`;
+- `noDuplicates` analyzes every frame but reports a batch only when its set
+  of raw values differs from the previous reported batch;
+- `unrestricted` analyzes and reports every frame.
+
+`updateScanWindow(Rect)` restricts decoding to a normalized rectangle in the
+upright analysis frame (`Rect.fromLTRB(0.1, 0.1, 0.9, 0.9)`); a barcode is
+reported only when all of its detected corners fall inside. Pass `null` to
+clear it. `scanner.scanEvents` exposes the raw per-frame batches (with
+`corners`/`boundingBox` geometry); `scans` and `scan()` remain the flattened
+convenience views.
+
+`analyzeImage(path)` decodes a still file through ML Kit without opening the
+camera or asking for permission, using the configured formats:
+
+```dart
+final results = await scanner.analyzeImage('/path/to/photo.jpg');
+```
+
+`invertImage: true` inverts frame colors before decoding, for
+white-on-black symbols. It is Android-only and ignored elsewhere. The scan
+window does not apply to still images.
 
 ### States
 
@@ -147,8 +236,10 @@ Declare the camera permission in your app's manifest:
 <uses-permission android:name="android.permission.CAMERA" />
 ```
 
-Runtime permission handling is the host app's job; the example app uses
-`permission_handler`.
+Runtime permission handling is handled by the plugin on Android: it requests
+`CAMERA` on the first drive that needs the camera and reports
+`failed/permission_denied` when denied. The example app also asks up front
+with `permission_handler` so the prompt appears at a friendlier moment.
 
 Decoding uses ML Kit. The default is the bundled model
 (`com.google.mlkit:barcode-scanning`): hermetic, no Play Services dependency,
@@ -177,24 +268,28 @@ and requires Play Services on the device.
   close/reopen) is the open question it waits on.
 - The preview has no rotation or aspect-ratio correction yet; it fills the
   widget as-is.
-- No torch control, no analyzer SPI yet (a custom decoder cannot be plugged
-  in before the `setAnalyzer` API lands), no scan-region hints.
+- No analyzer SPI yet (a custom decoder cannot be plugged in before the
+  `setAnalyzer` API lands), no tap-to-focus, and no per-detection frame
+  image (`returnImage`).
 - One scanner instance per app is the supported shape today.
 
 ## Testing
 
 The package is verified on three levels, and all of it is in this repository:
 
-- `flutter test` runs the Dart suite (26 tests): the state machine, idle
+- `flutter test` runs the Dart suite (80 tests): the state machine, idle
   policy, handoff and failure paths against a fake with real async semantics,
-  plus the pigeon mapping including the raw-bytes pass-through.
+  command serialization/races, config plumbing, torch/zoom/switch controls,
+  detection policy/window/still-image behavior,
+  and the pigeon mapping including the raw-bytes pass-through.
 - `./gradlew :instant_barcode_scanner:connectedDebugAndroidTest` (from
   `example/android`) runs 4 device tests against the real camera: convergence
   to `parked`, retargeting a `close` through an in-flight open, truthful
   release confirmed through `CameraManager` availability, and dispose during
   an open.
 - `flutter test integration_test` (from `example/`) runs the end-to-end
-  flows, including a fresh session after `dispose()`.
+  flows, including a fresh session after `dispose()`, the NFC handoff, the
+  scan-window commands, and the still-image error path.
 
 ## Contributing
 

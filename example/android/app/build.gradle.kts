@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "dev.instantbarcode.instant_barcode_scanner_example"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

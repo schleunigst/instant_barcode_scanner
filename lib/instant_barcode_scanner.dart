@@ -5,6 +5,7 @@
 library;
 
 export 'src/controller.dart' show InstantBarcodeScanner;
+export 'src/session.dart' show ScanSession;
 export 'src/platform/platform.dart' show InstantBarcodeScannerPlatform;
 export 'src/platform/policy.dart' show ScannerPolicy;
 export 'src/platform/types.dart'

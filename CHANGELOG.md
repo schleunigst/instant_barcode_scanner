@@ -16,6 +16,8 @@
 - Normalized, rotation-aware scan windows via `updateScanWindow`.
 - Still-image decoding through `analyzeImage` without opening the camera.
 - `invertImage` support for white-on-black symbols, including still images.
+- `ScanSession` lifecycle facade with idempotent `start`, `pause`, `resume`,
+  and `dispose`.
 - `analysisMetrics` and per-event `ScanEvent.analysisFrame` expose upright
   analysis-frame size/rotation for barcode coordinate mapping.
 - `ScannerCapabilities` reports the resolved `cameraFacing`,

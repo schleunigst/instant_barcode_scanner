@@ -167,9 +167,27 @@ class _ScannerPageState extends State<ScannerPage> {
       body: Column(
         children: [
           Expanded(
-            child: Container(
-              color: Colors.black,
-              child: InstantBarcodeScannerView(controller: _scanner),
+            child: InstantBarcodeScannerView(
+              controller: _scanner,
+              fit: BoxFit.cover,
+              placeholderBuilder: (context) => const Center(
+                child: Text(
+                  'Starting camera…',
+                  style: TextStyle(color: Colors.white70),
+                ),
+              ),
+              overlayBuilder: (context) => IgnorePointer(
+                child: Center(
+                  child: Container(
+                    width: 240,
+                    height: 240,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.white70, width: 2),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
           Padding(
@@ -195,6 +213,9 @@ class _ScannerPageState extends State<ScannerPage> {
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text('text: ${result.text ?? '<none>'}'),
+                  Text('type: ${result.type}'),
+                  if (result.displayValue != null)
+                    Text('display: ${result.displayValue}'),
                 ],
                 const SizedBox(height: 8),
                 Wrap(

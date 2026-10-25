@@ -54,7 +54,7 @@ import dev.instantbarcode.instant_barcode_scanner.pigeon.PlatformState
 internal class CameraMechanism(
     private val context: Context,
     private val previewSurface: () -> Surface?,
-    private val onPreviewSize: (width: Int, height: Int) -> Unit,
+    private val onPreviewSize: (width: Int, height: Int, sensorOrientation: Int) -> Unit,
     private val onStateChanged: (PlatformSnapshot) -> Unit,
     private val onBarcodes: (List<PlatformBarcode>) -> Unit,
     private val selection: () -> CameraSelection,
@@ -498,6 +498,7 @@ internal class CameraMechanism(
         selectedCameraId = camId
         try {
             val characteristics = manager.getCameraCharacteristics(camId)
+            sensorRotation = sensorOrientation(characteristics)
             val map = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
             if (map != null) {
                 val size = bestSize(
@@ -505,9 +506,8 @@ internal class CameraMechanism(
                     maxAnalysisWidth,
                     maxAnalysisHeight,
                 )
-                onPreviewSize(size.width, size.height)
+                onPreviewSize(size.width, size.height, sensorRotation)
             }
-            sensorRotation = sensorOrientation(characteristics)
             hasFlash =
                 characteristics.get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
             val zoom = zoomInfo(characteristics)

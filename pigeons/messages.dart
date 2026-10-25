@@ -192,6 +192,26 @@ class PlatformCapabilities {
   final double maxZoom;
 }
 
+/// Geometry of the preview texture, in buffer pixels plus the clockwise
+/// rotation and mirroring needed to display it upright.
+class PlatformPreviewMetrics {
+  PlatformPreviewMetrics(
+    this.width,
+    this.height,
+    this.rotationDegrees,
+    this.mirrored,
+  );
+
+  final int width;
+  final int height;
+
+  /// Clockwise rotation to apply before display (0/90/180/270).
+  final int rotationDegrees;
+
+  /// Whether the preview should be mirrored horizontally (front cameras).
+  final bool mirrored;
+}
+
 /// Commands from Dart to the platform.
 ///
 /// All state transitions go through [driveTo]; it completes when the
@@ -263,4 +283,7 @@ abstract class ScannerFlutterApi {
 
   /// A batch of barcodes decoded while `live`.
   void onBarcodes(List<PlatformBarcode> barcodes);
+
+  /// The preview texture's buffer size and display transform changed.
+  void onPreviewMetrics(PlatformPreviewMetrics metrics);
 }

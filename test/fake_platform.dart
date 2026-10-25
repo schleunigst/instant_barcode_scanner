@@ -40,14 +40,17 @@ class FakePlatform implements InstantBarcodeScannerPlatform {
 
   void Function(ScannerStatus status)? _onState;
   void Function(List<ScanResult> results)? _onBarcodes;
+  void Function(PreviewMetrics metrics)? _onPreviewMetrics;
 
   @override
   void setEventHandlers({
     required void Function(ScannerStatus status) onState,
     required void Function(List<ScanResult> results) onBarcodes,
+    required void Function(PreviewMetrics metrics) onPreviewMetrics,
   }) {
     _onState = onState;
     _onBarcodes = onBarcodes;
+    _onPreviewMetrics = onPreviewMetrics;
   }
 
   @override
@@ -156,4 +159,7 @@ class FakePlatform implements InstantBarcodeScannerPlatform {
   }
 
   void emit(List<ScanResult> results) => _onBarcodes?.call(results);
+
+  void emitPreviewMetrics(PreviewMetrics metrics) =>
+      _onPreviewMetrics?.call(metrics);
 }

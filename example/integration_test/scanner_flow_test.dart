@@ -23,6 +23,18 @@ void main() {
     await scanner.warmUp();
     expect(scanner.state, ScannerState.parked);
 
+    // The preview transform arrives from the platform with the first
+    // configured session; the view uses it for rotation and fit.
+    final metricsDeadline = DateTime.now().add(const Duration(seconds: 2));
+    while (scanner.previewMetrics.value == null &&
+        DateTime.now().isBefore(metricsDeadline)) {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+    final preview = scanner.previewMetrics.value;
+    expect(preview, isNotNull);
+    expect(preview!.size.isEmpty, isFalse);
+    expect(preview.rotationDegrees % 90, 0);
+
     // Decoding controls are live on the platform channel; the camera is
     // parked here, so this exercises the stored-window path.
     await scanner.updateScanWindow(const Rect.fromLTRB(0.1, 0.1, 0.9, 0.9));

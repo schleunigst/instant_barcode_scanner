@@ -45,6 +45,7 @@ class InstantBarcodeScanner {
     _platform.setEventHandlers(
       onState: _handleStatus,
       onBarcodes: _handleBarcodes,
+      onPreviewMetrics: _handlePreviewMetrics,
     );
   }
 
@@ -61,6 +62,7 @@ class InstantBarcodeScanner {
     const ScannerStatus(state: ScannerState.closed),
   );
   final ValueNotifier<int?> _textureId = ValueNotifier(null);
+  final ValueNotifier<PreviewMetrics?> _previewMetrics = ValueNotifier(null);
   final ValueNotifier<TorchState> _torchState = ValueNotifier(TorchState.off);
   final ValueNotifier<double> _zoomScale;
   final StreamController<ScanResult> _scanController =
@@ -101,6 +103,10 @@ class InstantBarcodeScanner {
 
   /// Texture id of the camera preview; null until the texture exists.
   ValueListenable<int?> get textureId => _textureId;
+
+  /// Preview buffer geometry for aspect-correct rendering; null until the
+  /// platform reports it or after [dispose].
+  ValueListenable<PreviewMetrics?> get previewMetrics => _previewMetrics;
 
   /// The configuration this scanner runs with (facing/lens reflect
   /// [switchCamera]).
@@ -615,6 +621,7 @@ class InstantBarcodeScanner {
         await _platform.dispose();
       } finally {
         _textureId.value = null;
+        _previewMetrics.value = null;
       }
     });
     _disposeFuture = future;
@@ -772,6 +779,13 @@ class InstantBarcodeScanner {
     if (pending != null && !pending.isCompleted) {
       pending.completeError(error);
     }
+  }
+
+  void _handlePreviewMetrics(PreviewMetrics metrics) {
+    if (_disposed) {
+      return;
+    }
+    _previewMetrics.value = metrics;
   }
 
   void _handleBarcodes(List<ScanResult> results) {

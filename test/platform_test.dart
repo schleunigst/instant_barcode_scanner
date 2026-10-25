@@ -115,7 +115,11 @@ void main() {
   test('state events from the platform reach the registered sink', () async {
     final platform = MethodChannelInstantBarcodeScannerPlatform();
     ScannerStatus? received;
-    platform.setEventHandlers(onState: (s) => received = s, onBarcodes: (_) {});
+    platform.setEventHandlers(
+      onState: (s) => received = s,
+      onBarcodes: (_) {},
+      onPreviewMetrics: (_) {},
+    );
 
     await deliverFlutterApi('onStateChanged', <Object?>[
       pigeon.PlatformSnapshot(
@@ -135,6 +139,7 @@ void main() {
     platform.setEventHandlers(
       onState: (_) {},
       onBarcodes: (results) => received = results,
+      onPreviewMetrics: (_) {},
     );
 
     final raw = Uint8List.fromList([0x00, 0xFF, 0x80, 0x0A]);

@@ -189,6 +189,22 @@ final results = await scanner.analyzeImage('/path/to/photo.jpg');
 white-on-black symbols. It is Android-only and ignored elsewhere. The scan
 window does not apply to still images.
 
+### Preview
+
+`InstantBarcodeScannerView` rotates the camera buffer upright, applies the
+front-camera mirror, and fits it with `fit` (`BoxFit.cover` by default).
+`placeholderBuilder` replaces the black frame until the texture exists and
+`overlayBuilder` is painted on top of both the preview and the placeholder:
+
+```dart
+InstantBarcodeScannerView(
+  controller: scanner,
+  fit: BoxFit.cover,
+  placeholderBuilder: (_) => const Center(child: Text('Starting…')),
+  overlayBuilder: (_) => const ScanReticle(),
+)
+```
+
 ### States
 
 | State    | Camera device | Session | Frames | Notes                                    |
@@ -266,8 +282,9 @@ and requires Play Services on the device.
   platform-neutral from day one, so iOS code slots in behind the same Dart
   policy — whether AVFoundation can hold a parked state (rather than
   close/reopen) is the open question it waits on.
-- The preview has no rotation or aspect-ratio correction yet; it fills the
-  widget as-is.
+- Preview rotation/fit is derived from buffer geometry and the current
+  display rotation; extreme multi-camera crops and exotic sensors still need
+  a visual check on the target device.
 - No analyzer SPI yet (a custom decoder cannot be plugged in before the
   `setAnalyzer` API lands), no tap-to-focus, and no per-detection frame
   image (`returnImage`).
@@ -277,10 +294,11 @@ and requires Play Services on the device.
 
 The package is verified on three levels, and all of it is in this repository:
 
-- `flutter test` runs the Dart suite (80 tests): the state machine, idle
+- `flutter test` runs the Dart suite (84 tests): the state machine, idle
   policy, handoff and failure paths against a fake with real async semantics,
   command serialization/races, config plumbing, torch/zoom/switch controls,
-  detection policy/window/still-image behavior,
+  detection policy/window/still-image behavior, preview geometry and view
+  builders,
   and the pigeon mapping including the raw-bytes pass-through.
 - `./gradlew :instant_barcode_scanner:connectedDebugAndroidTest` (from
   `example/android`) runs 4 device tests against the real camera: convergence

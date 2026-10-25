@@ -210,16 +210,19 @@ InstantBarcodeScannerView(
 | State    | Camera device | Session | Frames | Notes                                    |
 | -------- | ------------- | ------- | ------ | ---------------------------------------- |
 | `closed` | closed        | —       | —      | OS camera indicator off                  |
+| `opening` | opening      | —       | —      | transient while the device opens         |
 | `open`   | open          | no      | —      | device held, no session                  |
 | `parked` | open          | yes     | no     | preview holds its last frame             |
 | `live`   | open          | yes     | yes    | decoding; OS camera indicator on         |
+| `closing` | closing      | —       | —      | transient while the device closes        |
 | `failed` | closed        | —       | —      | carries `errorCode`; camera already released |
 
-`opening` and `closing` exist in the enum as part of the platform contract
-but are not emitted in 0.1; commands resolve to stable states. When the
-mechanism fails mid-session (a disconnect, a configure failure), the state
-becomes `failed`, the camera is released first, and `errorCode` /
-`errorMessage` say what happened. `warmUp()` or `scan()` retries from there.
+`opening` and `closing` are transient and may arrive between commands; the
+command future still resolves only on a stable target. When the mechanism
+fails mid-session (a disconnect, a configure or open timeout, a repeating
+failure), the state becomes `failed`, the camera is released first, and
+`errorCode` / `errorMessage` say what happened. `warmUp()` or `scan()`
+retries from there.
 
 Steady draws for these states on the same reference device (phone total,
 app foreground): `live` ~12.8 %/h, `parked` ~7.9 %/h, `closed` ~3.5 %/h.
@@ -230,7 +233,9 @@ camera indicator dark.
 A `closed` status is a promise, not a hint: the camera device is closed and,
 for `beginNfcHandoff()`, the camera HAL has reported the device available
 again before the future completes. That is the whole point of owning camera2
-directly instead of wrapping CameraX.
+directly instead of wrapping CameraX. If a platform reports
+`supportsTrueClose: false`, `beginNfcHandoff()` fails with
+`true_close_unsupported` instead of risking an unsafe handoff.
 
 When the host activity goes to the background, the plugin closes the camera
 itself — Android revokes camera access for background apps anyway, and it is

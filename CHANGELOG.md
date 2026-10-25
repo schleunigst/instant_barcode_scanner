@@ -27,6 +27,13 @@
   handoffs, camera switches, and queued torch/zoom commands.
 - Truthful-close availability watch ordering, camera-scoped analysis targets,
   ML Kit client initialization races, and image-reader teardown.
+- Emit the transient `opening`/`closing` states instead of leaving them
+  documented but unreachable.
+- Bound camera open/session configuration with timeouts, release superseded
+  opens, and cancel pending permission prompts when the host goes away.
+- Accept zoom before the first drive and apply it when the device opens.
+- Refuse NFC handoff when the platform cannot guarantee a true camera close.
+- Drop decoded batches delivered after the scanner leaves `live`.
 
 ## 0.1.0
 

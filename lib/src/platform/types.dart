@@ -235,9 +235,9 @@ class ScanResult {
 
 /// The mechanism state, as confirmed by the platform.
 ///
-/// v0.1 reports stable states: `closed`, `open`, `parked`, `live` and
-/// `failed`. `opening` and `closing` are part of the platform contract but
-/// are not emitted yet.
+/// `opening` and `closing` are transient states emitted while the platform
+/// converges. The other states are stable targets: `closed`, `open`,
+/// `parked`, `live` and `failed`.
 ///
 /// Only `live` captures frames; only `live` keeps the camera indicator lit.
 /// `parked` keeps the camera device open with the session configured but
@@ -283,6 +283,11 @@ class ScannerCapabilities {
 
   /// Releasing from `parked` truthfully closes the camera device, so the
   /// OS-level camera-in-use indicator reflects the actual state.
+  ///
+  /// When false, `close()` still asks the platform to
+  /// release the camera, but `beginNfcHandoff()` refuses
+  /// to run because handing the camera to another process cannot be made
+  /// safe without a truthful close.
   final bool supportsTrueClose;
 
   /// The selected camera has a controllable torch.

@@ -22,9 +22,9 @@ The next program of work has three phases, in order:
 4. **iOS** — the same package, same public API, AVFoundation underneath.
    Constraints and open experiments are in `04-ios-constraints.md`.
 
-The user has directed that the package repository stays **private** for now.
-Publishing (pub.dev, tag `v0.1.0`/later) is a separate, later decision. The
-blog remains a separate publication track.
+The package repository is public. Publishing (pub.dev, tag `v0.1.0`/later)
+is a separate, human-gated decision. The blog remains a separate publication
+track.
 
 ## Non-negotiable principles
 
@@ -48,14 +48,17 @@ blog remains a separate publication track.
 
 ## Current position
 
-As of 2026-10-22:
+As of 2026-10-25:
 
-- v0.1 Android audit complete; 15 hardening tests added (`test/hardening_test.dart`),
-  full suite 66 green, `flutter analyze` clean, debug APK builds.
-- Kotlin audit fixes K1/K5/K6 landed (availability watch ordering, ML Kit
-  client race, safe `ImageProxy.close`).
-- Parity specification drafted in `02-parity-matrix.md`; no parity code has
-  started.
+- v0.1 Android audit complete; Dart A1–A13 and Kotlin K1–K5 fixes landed
+  with regression coverage.
+- Parity tranches A (controls/configuration), B (decoding) and C (preview)
+  are implemented on `feat/parity-ab` and `feat/parity-c-view`; the full Dart
+  suite is 84 green, analyze is clean, and the APK builds.
+- Emulator verification is green (instrumented 4/4, integration flow 2/2,
+  spam 2/2). Physical-device geometry, lens/facing, still-image success and
+  battery checks remain.
+- PRs #9 (A+B → `main`) and #10 (C → `feat/parity-ab`) are open.
 - iOS has no implementation yet; the design paper commits to this package
   owning it eventually. Do not publish 1.0 before the iOS story is decided.
 
@@ -96,9 +99,8 @@ delegate implementation without the spec.
 
 Subagents start fresh: they know nothing. Give them:
 
-- The repository path (`/home/admin/projects/instant_barcode_scanner`), branch
-  (`refactor/native-structure`), and the fact that `/home/admin/projects/publish/`
-  copies are **not** the working tree.
+- The repository root and the current branch. Never edit a publish copy; the
+  working tree is the source of truth.
 - The exact files to read (list them), the contract doc, and this roadmap.
 - Commands: `. ~/.flutter-env` first; `flutter analyze`; `flutter test`;
   build from `example/` (`flutter build apk --debug`).
@@ -121,7 +123,7 @@ Subagents start fresh: they know nothing. Give them:
 | Permission flow on Android missing (K3) | first-run parity gap; `SecurityException` today maps to generic failure | add `permissionDenied` error code + activity result plumbing in tranche A |
 | iOS cannot park a session without camera indicator | `supportsPark=false` on iOS | warmUp degrades to open; measure stop/start cost before promising |
 | Scope creep into a general camera package | schedule blow-up | parity matrix is the boundary; beyond-parity items get prioritized separately |
-| Package/repo visibility confusion | accidental publish | repo private; publish is a human-gated checklist |
+| Accidental publish/tag | users get an unreviewed package | repo is public; publishing and tagging are human-gated checklists |
 
 ## Document index
 

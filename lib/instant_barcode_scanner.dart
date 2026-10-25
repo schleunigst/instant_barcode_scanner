@@ -22,6 +22,7 @@ export 'src/platform/types.dart'
         ScannerCapabilities,
         ScannerConfig,
         ScannerException,
+        ScannerMetrics,
         ScannerState,
         ScannerStatus,
         TorchState;

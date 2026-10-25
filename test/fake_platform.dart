@@ -31,6 +31,7 @@ class FakePlatform implements InstantBarcodeScannerPlatform {
   bool holdDrives = false;
 
   ScannerConfig? configured;
+  int analyzedFrames = 0;
   bool torch = false;
   double zoomRatio = 1.0;
   Rect? scanWindow;
@@ -80,6 +81,9 @@ class FakePlatform implements InstantBarcodeScannerPlatform {
     }
     return Future.value(capabilitiesResult);
   }
+
+  @override
+  Future<int> getAnalyzedFrames() => Future.value(analyzedFrames);
 
   @override
   Future<ScannerStatus> driveTo(ScannerState target) {

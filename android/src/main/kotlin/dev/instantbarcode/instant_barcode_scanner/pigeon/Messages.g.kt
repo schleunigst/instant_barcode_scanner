@@ -974,6 +974,11 @@ interface ScannerHostApi {
    */
   suspend fun getTextureId(): Long
   suspend fun getCapabilities(): PlatformCapabilities
+  /**
+   * Number of camera frames submitted to the decoder since the current
+   * controller configured the plugin. Still-image decodes are not counted.
+   */
+  suspend fun getAnalyzedFrames(): Long
   /** Drive the mechanism toward [target]. */
   suspend fun driveTo(target: PlatformState): PlatformSnapshot
   /**
@@ -1057,6 +1062,23 @@ interface ScannerHostApi {
             CoroutineScope(Dispatchers.Main).launch {
               val wrapped: List<Any?> = try {
                 listOf(api.getCapabilities())
+              } catch (exception: Throwable) {
+                MessagesPigeonUtils.wrapError(exception)
+              }
+              reply.reply(wrapped)
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.instant_barcode_scanner.ScannerHostApi.getAnalyzedFrames$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { _, reply ->
+            CoroutineScope(Dispatchers.Main).launch {
+              val wrapped: List<Any?> = try {
+                listOf(api.getAnalyzedFrames())
               } catch (exception: Throwable) {
                 MessagesPigeonUtils.wrapError(exception)
               }

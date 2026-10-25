@@ -20,6 +20,7 @@ void main() {
     'configure',
     'getTextureId',
     'getCapabilities',
+    'getAnalyzedFrames',
     'driveTo',
     'switchCamera',
     'setTorch',
@@ -116,6 +117,13 @@ void main() {
     expect(caps.cameraFacing, CameraFacing.back);
     expect(caps.cameraLensType, CameraLensType.any);
     expect(caps.cameraId, '0');
+  });
+
+  test('analyzed frame counters pass through', () async {
+    mockHost('getAnalyzedFrames', (args) async => 1234);
+    final platform = MethodChannelInstantBarcodeScannerPlatform();
+
+    expect(await platform.getAnalyzedFrames(), 1234);
   });
 
   test('analysis frames map to upright size and rotation', () async {

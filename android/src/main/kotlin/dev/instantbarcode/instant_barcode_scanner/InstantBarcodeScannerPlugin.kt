@@ -45,6 +45,7 @@ import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
 import io.flutter.plugin.common.PluginRegistry
 import io.flutter.view.TextureRegistry
 import java.io.File
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.CoroutineScope
@@ -143,6 +144,7 @@ class InstantBarcodeScannerPlugin : FlutterPlugin, ActivityAware, ScannerHostApi
     /** Last state the mechanism confirmed; drives the close/HAL wait. */
     @Volatile
     private var lastState: PlatformState = PlatformState.CLOSED
+    private val analyzedFrames = AtomicLong(0)
     private val mutex = Mutex()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -177,6 +179,7 @@ class InstantBarcodeScannerPlugin : FlutterPlugin, ActivityAware, ScannerHostApi
         // Configuration is per controller: a new controller starts without a
         // scan window inherited from the previous session.
         scanWindow = null
+        analyzedFrames.set(0)
     }
 
     override suspend fun getTextureId(): Long = mutex.withLock {
@@ -194,6 +197,8 @@ class InstantBarcodeScannerPlugin : FlutterPlugin, ActivityAware, ScannerHostApi
         }
         current.id()
     }
+
+    override suspend fun getAnalyzedFrames(): Long = analyzedFrames.get()
 
     override suspend fun getCapabilities(): PlatformCapabilities {
         val context = applicationContext
@@ -533,6 +538,7 @@ class InstantBarcodeScannerPlugin : FlutterPlugin, ActivityAware, ScannerHostApi
             onAnalysisFrame = { frame ->
                 scope.launch { api.onAnalysisFrame(frame) }
             },
+            onFrameAnalyzed = { analyzedFrames.incrementAndGet() },
             selection = { selection },
             formats = config.formats,
             detectionSpeed = config.detectionSpeed,

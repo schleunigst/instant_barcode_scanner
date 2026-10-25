@@ -18,6 +18,8 @@
 - `invertImage` support for white-on-black symbols, including still images.
 - `ScanSession` lifecycle facade with idempotent `start`, `pause`, `resume`,
   and `dispose`.
+- `ScannerMetrics` and `readMetrics()` expose scan/decode/camera counters and
+  the last scan, open, and resume timings.
 - `analysisMetrics` and per-event `ScanEvent.analysisFrame` expose upright
   analysis-frame size/rotation for barcode coordinate mapping.
 - `ScannerCapabilities` reports the resolved `cameraFacing`,

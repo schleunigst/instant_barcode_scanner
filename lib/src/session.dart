@@ -84,6 +84,12 @@ class ScanSession {
   /// What the platform mechanism can do on this device.
   Future<ScannerCapabilities> get capabilities => scanner.capabilities;
 
+  /// Cumulative counters and timings. See [InstantBarcodeScanner.readMetrics].
+  Future<ScannerMetrics> readMetrics() {
+    _ensureNotDisposed();
+    return scanner.readMetrics();
+  }
+
   /// The scanner configuration.
   ScannerConfig get config => scanner.config;
 

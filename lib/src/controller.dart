@@ -88,6 +88,21 @@ class InstantBarcodeScanner {
   bool _disposed = false;
   Future<void>? _disposeFuture;
 
+  int _scanRequests = 0;
+  int _scanSuccesses = 0;
+  int _scanTimeouts = 0;
+  int _scanFailures = 0;
+  int _barcodes = 0;
+  int _decodedFrames = 0;
+  int _cameraStarts = 0;
+  int _failures = 0;
+  Duration? _lastScanLatency;
+  Duration? _lastOpenLatency;
+  Duration? _lastResumeLatency;
+  bool _cameraOpening = false;
+  bool _cameraWasClosed = true;
+  bool _failureRecorded = false;
+
   /// Drives are serialized in call order: the queue makes a late `warmUp`
   /// unable to park the camera under a scan that started after it, and keeps
   /// dispose behind the commands it must not tear down.
@@ -160,6 +175,35 @@ class InstantBarcodeScanner {
       },
     );
     return future;
+  }
+
+  /// Cumulative counters and timings since the controller was created.
+  ///
+  /// [ScannerMetrics.analyzedFrames] is read from the platform; all other
+  /// fields are kept by the controller. Reading metrics configures the
+  /// scanner (without opening the camera) on first use.
+  Future<ScannerMetrics> readMetrics() async {
+    _ensureUsable();
+    await _ensureConfigured();
+    try {
+      final analyzedFrames = await _platform.getAnalyzedFrames();
+      return ScannerMetrics(
+        scanRequests: _scanRequests,
+        scanSuccesses: _scanSuccesses,
+        scanTimeouts: _scanTimeouts,
+        scanFailures: _scanFailures,
+        barcodes: _barcodes,
+        decodedFrames: _decodedFrames,
+        analyzedFrames: analyzedFrames,
+        cameraStarts: _cameraStarts,
+        failures: _failures,
+        lastScanLatency: _lastScanLatency,
+        lastOpenLatency: _lastOpenLatency,
+        lastResumeLatency: _lastResumeLatency,
+      );
+    } on PlatformException catch (e) {
+      throw _platformFailure(e);
+    }
   }
 
   Future<ScannerCapabilities> _loadCapabilities() async {
@@ -267,6 +311,7 @@ class InstantBarcodeScanner {
   /// [ScannerException].
   Future<ScanResult> scan({Duration timeout = const Duration(seconds: 10)}) {
     _ensureUsable();
+    _scanRequests++;
     final active = _activeScan;
     if (active != null) {
       return active;
@@ -284,44 +329,58 @@ class InstantBarcodeScanner {
   }
 
   Future<ScanResult> _runScan(Duration timeout) async {
-    await _waitForHandoffEnd();
-    await _ensureTexture();
-    // The handoff may have started while the texture was resolving.
-    await _waitForHandoffEnd();
-    final completer = Completer<ScanResult>();
-    _pendingScan = completer;
-    // dispose()/handoff/close may fail this completer while this method is
-    // suspended; keep that error observed so it never becomes an unhandled
-    // zone error. The real await below still receives it.
-    unawaited(completer.future.then((_) {}, onError: (Object _) {}));
-    _touchIdle();
+    final watch = Stopwatch()..start();
     try {
-      final confirmed = await _enqueue<ScannerStatus?>(() async {
-        _ensureUsable();
-        if (!identical(_pendingScan, completer)) {
-          // A close/park/handoff cancelled this scan before the drive ran.
-          // The completer already carries the cancellation error.
-          return null;
-        }
-        return _drive(ScannerState.live);
-      });
-      if (confirmed == null) {
-        return await completer.future;
-      }
-      _ensureUsable();
-      _adopt(confirmed);
-      _requireState(confirmed, ScannerState.live);
+      await _waitForHandoffEnd();
+      await _ensureTexture();
+      // The handoff may have started while the texture was resolving.
+      await _waitForHandoffEnd();
+      final completer = Completer<ScanResult>();
+      _pendingScan = completer;
+      // dispose()/handoff/close may fail this completer while this method is
+      // suspended; keep that error observed so it never becomes an unhandled
+      // zone error. The real await below still receives it.
+      unawaited(completer.future.then((_) {}, onError: (Object _) {}));
       _touchIdle();
-      return await completer.future.timeout(
-        timeout,
-        onTimeout: () {
-          throw TimeoutException('no barcode within $timeout', timeout);
-        },
-      );
-    } finally {
-      if (identical(_pendingScan, completer)) {
-        _pendingScan = null;
+      try {
+        final confirmed = await _enqueue<ScannerStatus?>(() async {
+          _ensureUsable();
+          if (!identical(_pendingScan, completer)) {
+            // A close/park/handoff cancelled this scan before the drive ran.
+            // The completer already carries the cancellation error.
+            return null;
+          }
+          return _drive(ScannerState.live);
+        });
+        if (confirmed == null) {
+          return await completer.future;
+        }
+        _ensureUsable();
+        _adopt(confirmed);
+        _requireState(confirmed, ScannerState.live);
+        _touchIdle();
+        final result = await completer.future.timeout(
+          timeout,
+          onTimeout: () {
+            throw TimeoutException('no barcode within $timeout', timeout);
+          },
+        );
+        _scanSuccesses++;
+        _lastScanLatency = watch.elapsed;
+        return result;
+      } finally {
+        if (identical(_pendingScan, completer)) {
+          _pendingScan = null;
+        }
       }
+    } on TimeoutException {
+      _scanTimeouts++;
+      rethrow;
+    } catch (_) {
+      _scanFailures++;
+      rethrow;
+    } finally {
+      watch.stop();
     }
   }
 
@@ -694,15 +753,41 @@ class InstantBarcodeScanner {
 
   Future<ScannerStatus> _drive(ScannerState target) async {
     await _ensureConfigured();
+    final wasClosed =
+        state == ScannerState.closed || state == ScannerState.failed;
+    final wasWarm = state == ScannerState.parked || state == ScannerState.open;
+    final watch = Stopwatch()..start();
     try {
-      return await _platform.driveTo(target);
+      final status = await _platform.driveTo(target);
+      watch.stop();
+      if (!_disposed && !status.hasError) {
+        if (target != ScannerState.closed &&
+            wasClosed &&
+            _isCameraOpen(status.state)) {
+          _lastOpenLatency = watch.elapsed;
+        }
+        if (target == ScannerState.live &&
+            wasWarm &&
+            status.state == ScannerState.live) {
+          _lastResumeLatency = watch.elapsed;
+        }
+      }
+      return status;
     } on PlatformException catch (e) {
       return ScannerStatus(
         state: ScannerState.failed,
         errorCode: e.code.isEmpty ? 'platform_error' : e.code,
         errorMessage: e.message,
       );
+    } finally {
+      watch.stop();
     }
+  }
+
+  bool _isCameraOpen(ScannerState state) {
+    return state == ScannerState.open ||
+        state == ScannerState.parked ||
+        state == ScannerState.live;
   }
 
   /// Drive to [target], adopt the confirmed snapshot, and throw a
@@ -790,6 +875,7 @@ class InstantBarcodeScanner {
             status.state == ScannerState.failed)) {
       _analysisMetrics.value = null;
     }
+    _recordStatus(_status.value);
     if (status.state == ScannerState.live) {
       if (_config.torchEnabled && !_torchAppliedFromConfig) {
         _torchAppliedFromConfig = true;
@@ -802,6 +888,34 @@ class InstantBarcodeScanner {
       _torchState.value = _supportsTorch == false
           ? TorchState.unavailable
           : TorchState.off;
+    }
+  }
+
+  void _recordStatus(ScannerStatus status) {
+    if (status.hasError) {
+      if (!_failureRecorded) {
+        _failureRecorded = true;
+        _failures++;
+      }
+    } else if (status.state != ScannerState.failed) {
+      _failureRecorded = false;
+    }
+
+    if (status.state == ScannerState.opening) {
+      _cameraOpening = true;
+      return;
+    }
+    if (_isCameraOpen(status.state)) {
+      if (_cameraOpening || _cameraWasClosed) {
+        _cameraStarts++;
+      }
+      _cameraOpening = false;
+      _cameraWasClosed = false;
+    } else if (status.state == ScannerState.closed ||
+        status.state == ScannerState.failed ||
+        status.state == ScannerState.closing) {
+      _cameraOpening = false;
+      _cameraWasClosed = true;
     }
   }
 
@@ -844,6 +958,8 @@ class InstantBarcodeScanner {
       // view would keep the camera lit forever.
       _touchIdle();
     }
+    _barcodes += results.length;
+    _decodedFrames++;
     if (!_scanController.isClosed) {
       for (final result in results) {
         _scanController.add(result);

@@ -35,6 +35,10 @@ abstract class InstantBarcodeScannerPlatform {
 
   Future<ScannerCapabilities> getCapabilities();
 
+  /// Camera frames submitted to the decoder since the controller configured
+  /// the plugin. Still-image decodes are not counted.
+  Future<int> getAnalyzedFrames();
+
   /// Drive the mechanism toward [target] and complete with the confirmed
   /// status. The future may complete with a state other than [target] if the
   /// mechanism failed or was retargeted; callers must check the result.
@@ -164,6 +168,9 @@ class MethodChannelInstantBarcodeScannerPlatform
       cameraId: caps.cameraId,
     );
   }
+
+  @override
+  Future<int> getAnalyzedFrames() => _hostApi.getAnalyzedFrames();
 
   @override
   Future<ScannerStatus> driveTo(ScannerState target) async {

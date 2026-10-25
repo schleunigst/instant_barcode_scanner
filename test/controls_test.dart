@@ -465,6 +465,94 @@ void main() {
     });
   });
 
+  test('metrics count scans, frames, starts and failures', () {
+    fakeAsync((async) {
+      final platform = FakePlatform()..analyzedFrames = 3;
+      final scanner = InstantBarcodeScanner(platform: platform);
+      ScannerMetrics? metrics;
+
+      void read() {
+        metrics = null;
+        unawaited(scanner.readMetrics().then((value) => metrics = value));
+        async.flushMicrotasks();
+      }
+
+      read();
+      expect(metrics!.analyzedFrames, 3);
+      expect(metrics!.scanRequests, 0);
+      expect(metrics!.lastOpenLatency, isNull);
+
+      unawaited(scanner.warmUp());
+      async.flushMicrotasks();
+      read();
+      expect(metrics!.cameraStarts, 1);
+      expect(metrics!.lastOpenLatency, isNotNull);
+      expect(metrics!.lastResumeLatency, isNull);
+
+      platform.analyzedFrames = 20;
+      ScanResult? result;
+      unawaited(scanner.scan().then((value) => result = value));
+      async.flushMicrotasks();
+      read();
+      expect(metrics!.lastResumeLatency, isNotNull);
+
+      const second = ScanResult(format: BarcodeFormat.code128, text: 'B');
+      platform.emit(const [_qr, second]);
+      async.flushMicrotasks();
+      expect(result, _qr);
+
+      read();
+      expect(metrics!.scanRequests, 1);
+      expect(metrics!.scanSuccesses, 1);
+      expect(metrics!.barcodes, 2);
+      expect(metrics!.decodedFrames, 1);
+      expect(metrics!.analyzedFrames, 20);
+      expect(metrics!.lastScanLatency, isNotNull);
+
+      Object? timeout;
+      unawaited(
+        scanner
+            .scan(timeout: const Duration(seconds: 1))
+            .then((_) {}, onError: (Object error) => timeout = error),
+      );
+      async.flushMicrotasks();
+      async.elapse(const Duration(seconds: 1));
+      async.flushMicrotasks();
+      expect(timeout, isA<TimeoutException>());
+
+      read();
+      expect(metrics!.scanRequests, 2);
+      expect(metrics!.scanTimeouts, 1);
+      expect(metrics!.scanFailures, 0);
+
+      const failure = ScannerStatus(
+        state: ScannerState.failed,
+        errorCode: 'disconnected',
+        errorMessage: 'camera device was disconnected',
+      );
+      platform.emitStatus(failure);
+      async.flushMicrotasks();
+      read();
+      expect(metrics!.failures, 1);
+      expect(metrics!.cameraStarts, 1);
+
+      platform.emitStatus(failure);
+      async.flushMicrotasks();
+      read();
+      expect(metrics!.failures, 1);
+      expect(metrics!.cameraStarts, 1);
+
+      unawaited(scanner.warmUp());
+      async.flushMicrotasks();
+      read();
+      expect(metrics!.cameraStarts, 2);
+      expect(metrics!.lastOpenLatency, isNotNull);
+
+      unawaited(scanner.dispose());
+      async.flushMicrotasks();
+    });
+  });
+
   test('a denied camera surface maps to failed and switch recovers', () {
     fakeAsync((async) {
       final platform = FakePlatform()

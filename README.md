@@ -219,6 +219,31 @@ white-on-black symbols, for both camera frames and `analyzeImage` stills. It
 is Android-only and ignored elsewhere. The scan window does not apply to
 still images.
 
+### Metrics
+
+`readMetrics()` returns cumulative counters and the last observed timings:
+
+```dart
+final metrics = await scanner.readMetrics();
+print('${metrics.scanSuccesses}/${metrics.scanRequests} scans, '
+    '${metrics.barcodes} barcodes from ${metrics.decodedFrames} frames, '
+    'last open ${metrics.lastOpenLatency}');
+```
+
+`analyzedFrames` counts camera frames actually submitted to the decoder,
+including frames that found nothing; `decodedFrames` counts analyzed frames
+that produced a `ScanEvent`. `cameraStarts` counts confirmed openings, and
+`failures` counts confirmed platform failure transitions. Scan result counts
+and latencies are tracked by the controller, so they also cover failures
+before the native mechanism exists. Counters start when the controller is
+created; `readMetrics()` configures the scanner but does not open the camera.
+`ScanSession.readMetrics()` delegates to the same snapshot.
+
+`lastOpenLatency` covers the platform drive that opened a closed/failed
+camera, `lastResumeLatency` covers a `parked`/`open` to `live` drive, and
+`lastScanLatency` covers the last successful `scan()` call through its first
+barcode.
+
 ### Preview
 
 `InstantBarcodeScannerView` rotates the camera buffer upright, applies the
@@ -329,7 +354,7 @@ and requires Play Services on the device.
 
 The package is verified on three levels, and all of it is in this repository:
 
-- `flutter test` runs the Dart suite (84 tests): the state machine, idle
+- `flutter test` runs the Dart suite (100 tests): the state machine, idle
   policy, handoff and failure paths against a fake with real async semantics,
   command serialization/races, config plumbing, torch/zoom/switch controls,
   detection policy/window/still-image behavior, preview geometry and view

@@ -38,6 +38,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  *   thread.
  * @param onBarcodes decoded barcode batches, main thread.
  * @param onAnalysisFrame upright analysis-frame geometry, camera thread.
+ * @param onFrameAnalyzed one camera frame was submitted to the decoder.
  */
 internal class BarcodeAnalysisPipeline(
     private val context: Context,
@@ -49,6 +50,7 @@ internal class BarcodeAnalysisPipeline(
     private val isLive: () -> Boolean,
     private val onBarcodes: (List<PlatformBarcode>) -> Unit,
     private val onAnalysisFrame: (PlatformAnalysisFrame) -> Unit,
+    private val onFrameAnalyzed: () -> Unit,
 ) {
     companion object {
         private const val TAG = "InstantScanner"
@@ -223,6 +225,7 @@ internal class BarcodeAnalysisPipeline(
             } else {
                 InputImage.fromMediaImage(img, sensorRotation)
             }
+            onFrameAnalyzed()
             val task = scannerInstance().process(input)
             task.addOnSuccessListener { barcodes ->
                 if (!isLive() || captured != generation) {

@@ -40,9 +40,9 @@ seconds after your last read (so back-to-back scans stay hot), `parked` to
 `closed` after a longer idle. `live` is spent only while a read can
 actually happen; the seconds in between are parked, not live.
 
-> Status: early development. `0.1.0` is the current source baseline; the
-> controls, decoding, and preview work in this branch is unreleased. APIs may
-> change between 0.x releases.
+> Status: early development. The current baseline is `0.1.0`; camera controls,
+> richer decoding, and preview improvements are unreleased. APIs may change
+> between 0.x releases.
 
 ## Install
 

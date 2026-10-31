@@ -306,7 +306,11 @@ class ScannerConfig {
   final Duration detectionTimeout;
 
   /// Invert frame colors before decoding, for white-on-black symbols.
-  /// Android-only; other platforms may ignore it.
+  ///
+  /// Supported on Android and iOS; other platforms may ignore it. On iOS,
+  /// live inversion renders every analyzed frame through Core Image, which
+  /// adds a full-frame conversion per decoded frame, so leave it off unless
+  /// the symbols require it.
   final bool invertImage;
 
   /// Preferred analysis and preview resolution, or null for the package

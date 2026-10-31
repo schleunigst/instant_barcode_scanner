@@ -48,6 +48,21 @@ jobs:
       - run: ./gradlew :instant_barcode_scanner:assembleDebugAndroidTest --console=plain
         working-directory: example/android
 
+  ios:
+    runs-on: macos-15
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: example
+    steps:
+      - uses: actions/checkout@v7
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter build ios --debug --no-codesign
+
   publish-check:
     runs-on: ubuntu-latest
     timeout-minutes: 10

@@ -7,6 +7,7 @@ import 'package:pigeon/pigeon.dart';
     kotlinOptions: KotlinOptions(
       package: 'dev.instantbarcode.instant_barcode_scanner.pigeon',
     ),
+    swiftOut: 'ios/Classes/Messages.g.swift',
     dartPackageName: 'instant_barcode_scanner',
   ),
 )

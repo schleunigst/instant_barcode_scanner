@@ -1,6 +1,6 @@
 # instant_barcode_scanner
 
-A session-scoped barcode scanner for Flutter. Android only for now.
+A session-scoped barcode scanner for Flutter. Android and iOS.
 
 Most of a cold scan's wait is the camera, not the scan: from a fully
 closed state, the first preview frame takes a median of 1.33 s to appear
@@ -41,8 +41,9 @@ seconds after your last read (so back-to-back scans stay hot), `parked` to
 actually happen; the seconds in between are parked, not live.
 
 > Status: early development. The current baseline is `0.1.0`; camera controls,
-> richer decoding, and preview improvements are unreleased. APIs may change
-> between 0.x releases.
+> richer decoding, and preview improvements are unreleased. iOS support is
+> implemented for iOS 15.5 and newer and is awaiting device validation. APIs
+> may change between 0.x releases.
 
 ## Install
 
@@ -57,8 +58,9 @@ dependencies:
       ref: main
 ```
 
-Requires Android SDK 24 or newer. Your app declares the camera permission
-(see [Android setup](#android-setup)); the package does not.
+Requires Android SDK 24 or newer, or iOS 15.5 or newer. Your app declares
+the camera permission (see [Android setup](#android-setup) or
+[iOS setup](#ios-setup)); the package does not.
 
 ## Usage
 
@@ -336,14 +338,31 @@ dependencies {
 The unbundled client downloads its model through Play Services on first use
 and requires Play Services on the device.
 
+## iOS setup
+
+Declare the camera usage description in your app's `Info.plist`:
+
+```xml
+<key>NSCameraUsageDescription</key>
+<string>Scan barcodes with the camera.</string>
+```
+
+The plugin requests access on the first drive that needs the camera and
+reports `failed/permission_denied` when denied. There is no separate
+permission package to wire up.
+
+Decoding uses the bundled `GoogleMLKit/BarcodeScanning` pod (9.0.0, static
+framework). CocoaPods resolves it during `pod install`; no model download or
+Play Services dependency is involved. The minimum deployment target is iOS
+15.5, and the package is a normal Flutter plugin — `flutter pub get` and a
+CocoaPods install are the only setup steps.
+
 ## Limitations
 
-- Android only for now, exactly as the design paper says below. iOS is
-  planned for this same package, not a sibling: the API, events, and
-  `Capabilities` (`supportsPark`, `supportsTrueClose`, …) are
-  platform-neutral from day one, so iOS code slots in behind the same Dart
-  policy — whether AVFoundation can hold a parked state (rather than
-  close/reopen) is the open question it waits on.
+- iOS support requires iOS 15.5 or newer. The implementation is statically
+  checked and CI-built on macOS, but orientation, mirroring, lens fallback,
+  scan-window geometry, camera indicators, and latency still need validation
+  on a physical iPhone or iPad.
 - Preview rotation/fit is derived from buffer geometry and the current
   display rotation; extreme multi-camera crops and exotic sensors still need
   a visual check on the target device.
@@ -370,6 +389,9 @@ The package is verified on three levels, and all of it is in this repository:
 - `flutter test integration_test` (from `example/`) runs the end-to-end
   flows, including a fresh session after `dispose()`, the NFC handoff, the
   scan-window commands, and the still-image error path.
+- The `ios` CI job builds the example for iOS without codesigning on a macOS
+  runner, compiling the Swift plugin, Pigeon bindings, and CocoaPods graph.
+  Device runtime behavior still needs a physical device.
 
 ## Contributing
 

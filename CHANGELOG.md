@@ -26,6 +26,9 @@
   `cameraLensType`, and `cameraId` after fallback.
 - Preview fit, overlay and placeholder builders, upright rotation, and
   front-camera mirroring in `InstantBarcodeScannerView`.
+- iOS support (iOS 15.5+): AVFoundation capture, `FlutterTexture` preview,
+  ML Kit barcode decoding, still-image analysis, and the same lifecycle,
+  controls, scan windows, analysis geometry, and metrics as Android.
 
 ### Fixed
 

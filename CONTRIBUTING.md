@@ -26,8 +26,8 @@ cd example && flutter build apk --debug          # for Kotlin/Gradle changes
 ```
 
 - Generated Pigeon files (`lib/src/pigeon/messages.g.dart`,
-  `android/src/main/kotlin/.../pigeon/Messages.g.kt`) are committed; never
-  hand-edit them.
+  `android/src/main/kotlin/.../pigeon/Messages.g.kt`, and
+  `ios/Classes/Messages.g.swift`) are committed; never hand-edit them.
 - Device and instrumentation verification is required for changes touching
   the camera mechanism: state convergence, latency, and indicator truthfulness
   need a real camera, not just an APK build.

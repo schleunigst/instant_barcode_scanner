@@ -216,8 +216,10 @@ final results = await scanner.analyzeImage('/path/to/photo.jpg');
 
 `invertImage: true` inverts frame colors before decoding, for
 white-on-black symbols, for both camera frames and `analyzeImage` stills. It
-is Android-only and ignored elsewhere. The scan window does not apply to
-still images.
+is supported on Android and iOS and ignored on other platforms. On iOS, live
+inversion renders each analyzed frame through Core Image — a full-frame
+conversion per decoded frame on top of ML Kit — so leave it off unless the
+symbols require it. The scan window does not apply to still images.
 
 ### Metrics
 

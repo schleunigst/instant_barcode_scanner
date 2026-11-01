@@ -55,7 +55,9 @@ class PreviewMetrics {
     required this.mirrored,
   });
 
-  /// Buffer size in pixels, in the camera's native orientation.
+  /// Size in pixels after the platform texture transform (upright): the
+  /// camera sensor orientation is already applied, so this is the aspect the
+  /// preview should render at before [rotationDegrees].
   final Size size;
 
   /// Clockwise rotation to apply after the platform texture transform

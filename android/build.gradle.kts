@@ -1,5 +1,5 @@
 group = "dev.instantbarcode.instant_barcode_scanner"
-version = "0.1.0"
+version = "0.2.0"
 
 buildscript {
     val kotlinVersion = "2.4.21"

@@ -40,21 +40,20 @@ seconds after your last read (so back-to-back scans stay hot), `parked` to
 `closed` after a longer idle. `live` is spent only while a read can
 actually happen; the seconds in between are parked, not live.
 
-> Status: early development. The current baseline is `0.1.0`; camera controls,
-> richer decoding, and preview improvements are unreleased. APIs may change
+> Status: early development. The current release is `0.2.0`; APIs may change
 > between 0.x releases.
 
 ## Install
 
-The package is not on pub.dev yet. Until the first release, depend on the
-repository:
+```sh
+flutter pub add instant_barcode_scanner
+```
+
+Or add it manually:
 
 ```yaml
 dependencies:
-  instant_barcode_scanner:
-    git:
-      url: https://github.com/schleunigst/instant_barcode_scanner.git
-      ref: main
+  instant_barcode_scanner: ^0.2.0
 ```
 
 Requires Android SDK 24 or newer. Your app declares the camera permission

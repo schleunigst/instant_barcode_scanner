@@ -29,6 +29,10 @@
 
 ### Fixed
 
+- Preview rotation now compensates only for the display rotation. Flutter's
+  texture already applies the camera sensor transform, so the previous
+  sensor-based rotation over-rotated portrait previews and broke landscape
+  orientation.
 - Camera permission is requested at runtime and denial reports
   `permission_denied`.
 - Lifecycle and concurrency hardening around dispose, scan cancellation, NFC

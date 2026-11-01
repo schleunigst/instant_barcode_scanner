@@ -58,7 +58,9 @@ class PreviewMetrics {
   /// Buffer size in pixels, in the camera's native orientation.
   final Size size;
 
-  /// Clockwise rotation to apply before display (0/90/180/270).
+  /// Clockwise rotation to apply after the platform texture transform
+  /// (0/90/180/270). On Android this is the display rotation, because the
+  /// texture already carries the camera sensor orientation.
   final int rotationDegrees;
 
   /// Whether the preview should be mirrored horizontally (front cameras).

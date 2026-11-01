@@ -89,7 +89,6 @@ class InstantBarcodeScannerPlugin : FlutterPlugin, ActivityAware, ScannerHostApi
     private var scanWindow: PlatformRect? = null
     private var previewWidth = 0
     private var previewHeight = 0
-    private var previewSensorOrientation = 0
     private var flutterApi: ScannerFlutterApi? = null
     private var activity: Activity? = null
     private var activityBinding: ActivityPluginBinding? = null
@@ -118,11 +117,7 @@ class InstantBarcodeScannerPlugin : FlutterPlugin, ActivityAware, ScannerHostApi
             // Flutter's host activity handles rotation itself, so the plugin
             // must republish the display transform instead of waiting for an
             // activity re-creation.
-            publishPreviewMetrics(
-                previewWidth,
-                previewHeight,
-                previewSensorOrientation,
-            )
+            publishPreviewMetrics(previewWidth, previewHeight)
         }
 
         override fun onLowMemory() {}
@@ -524,9 +519,9 @@ class InstantBarcodeScannerPlugin : FlutterPlugin, ActivityAware, ScannerHostApi
         val created = CameraMechanism(
             context = context,
             previewSurface = { surface },
-            onPreviewSize = { width, height, sensorOrientation ->
+            onPreviewSize = { width, height, _ ->
                 entry?.surfaceTexture()?.setDefaultBufferSize(width, height)
-                publishPreviewMetrics(width, height, sensorOrientation)
+                publishPreviewMetrics(width, height)
             },
             onStateChanged = { snapshot ->
                 lastState = snapshot.state
@@ -624,11 +619,7 @@ class InstantBarcodeScannerPlugin : FlutterPlugin, ActivityAware, ScannerHostApi
         activity = host
         // Rotation may have changed while the host was re-created; the
         // buffer size is unchanged, so republish the display transform.
-        publishPreviewMetrics(
-            previewWidth,
-            previewHeight,
-            previewSensorOrientation,
-        )
+        publishPreviewMetrics(previewWidth, previewHeight)
         val callbacks = object : Application.ActivityLifecycleCallbacks {
             override fun onActivityStopped(stopped: Activity) {
                 if (stopped !== host) {
@@ -676,17 +667,12 @@ class InstantBarcodeScannerPlugin : FlutterPlugin, ActivityAware, ScannerHostApi
         activity = null
     }
 
-    private fun publishPreviewMetrics(
-        width: Int,
-        height: Int,
-        sensorOrientation: Int,
-    ) {
+    private fun publishPreviewMetrics(width: Int, height: Int) {
         if (width <= 0 || height <= 0) {
             return
         }
         previewWidth = width
         previewHeight = height
-        previewSensorOrientation = sensorOrientation
         val api = flutterApi ?: return
         val host = activity ?: return
         @Suppress("DEPRECATION")
@@ -696,16 +682,15 @@ class InstantBarcodeScannerPlugin : FlutterPlugin, ActivityAware, ScannerHostApi
             Surface.ROTATION_270 -> 270
             else -> 0
         }
+        // Flutter's Texture already applies the SurfaceTexture transform, which
+        // includes the camera's sensor orientation. Only the display rotation
+        // is left for the Dart layer to apply. Mirroring is not part of the
+        // transform, so front cameras still opt in explicitly.
         val front = selection.facing == PlatformCameraFacing.FRONT
-        val rotation = if (front) {
-            (sensorOrientation + displayRotation) % 360
-        } else {
-            (sensorOrientation - displayRotation + 360) % 360
-        }
         val metrics = PlatformPreviewMetrics(
             width = width.toLong(),
             height = height.toLong(),
-            rotationDegrees = rotation.toLong(),
+            rotationDegrees = displayRotation.toLong(),
             mirrored = front,
         )
         scope.launch { api.onPreviewMetrics(metrics) }

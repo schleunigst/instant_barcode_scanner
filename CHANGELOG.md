@@ -1,6 +1,9 @@
 # Changelog
 
-## Unreleased
+## 0.2.0
+
+Camera controls, detection policies, still-image decoding, the session facade,
+metrics, and corrected preview geometry.
 
 ### Added
 

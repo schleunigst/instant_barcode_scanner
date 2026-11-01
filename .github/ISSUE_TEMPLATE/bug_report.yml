@@ -42,7 +42,7 @@ body:
     attributes:
       label: Package and Flutter versions
       description: From the package's pubspec.yaml and `flutter --version`.
-      placeholder: instant_barcode_scanner 0.1.0, Flutter 3.3.x stable
+      placeholder: instant_barcode_scanner 0.2.0, Flutter 3.3.x stable
     validations:
       required: true
 

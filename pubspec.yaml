@@ -3,7 +3,7 @@ description: >-
   A session-scoped barcode scanner for Flutter. The camera stays warm between
   scans for fast re-scans, releases truthfully when idle, and returns raw
   barcode bytes alongside text.
-version: 0.1.0
+version: 0.2.0
 homepage: https://github.com/schleunigst/instant_barcode_scanner
 repository: https://github.com/schleunigst/instant_barcode_scanner
 issue_tracker: https://github.com/schleunigst/instant_barcode_scanner/issues

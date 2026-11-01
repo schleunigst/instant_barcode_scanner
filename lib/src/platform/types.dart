@@ -65,7 +65,10 @@ class PreviewMetrics {
   /// texture already carries the camera sensor orientation.
   final int rotationDegrees;
 
-  /// Whether the preview should be mirrored horizontally (front cameras).
+  /// Whether the view should flip the texture horizontally to display it
+  /// correctly. On Android this is true for front cameras, whose sensor
+  /// transform already mirrors the texture; the flip presents them
+  /// un-mirrored (readable), matching other scanner packages.
   final bool mirrored;
 
   @override

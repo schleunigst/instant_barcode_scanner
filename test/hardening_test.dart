@@ -27,6 +27,32 @@ void main() {
       });
     });
 
+    test('dispose does not queue behind a drive held on permission', () {
+      fakeAsync((async) {
+        final platform = FakePlatform()..holdDrives = true;
+        final scanner = InstantBarcodeScanner(platform: platform);
+
+        Object? scanError;
+        unawaited(
+          scanner
+              .scan(timeout: const Duration(seconds: 30))
+              .then((_) {}, onError: (Object error) => scanError = error),
+        );
+        async.flushMicrotasks();
+        expect(platform.drives, [ScannerState.live]);
+
+        var disposed = false;
+        unawaited(scanner.dispose().then((_) => disposed = true));
+        async.flushMicrotasks();
+
+        // Regression: dispose used to enqueue its platform teardown behind the
+        // held drive, so it never ran and the future never completed.
+        expect(disposed, isTrue);
+        expect(platform.disposeCalls, 1);
+        expect(scanError, isA<StateError>());
+      });
+    });
+
     test('endNfcHandoff after dispose never reopens the camera', () {
       fakeAsync((async) {
         final platform = FakePlatform();

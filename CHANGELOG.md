@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+Publishing is pending operator approval; the version is not bumped yet.
+
+### Fixed
+
+- `dispose()` no longer hangs behind a drive that is waiting on an unanswered
+  camera-permission prompt. Teardown cancels the prompt and completes instead
+  of queueing behind it.
+- `analyzeImage()` with `invertImage` no longer allocates a second
+  full-resolution bitmap: large photos are downsampled to a 2048 px long edge
+  before the inverted copy is made.
+- Preview rotation now follows the activity's current display on Android 11+
+  instead of the deprecated default display, and preview metrics are published
+  on the main thread.
+
 ## 0.2.0
 
 Camera controls, detection policies, still-image decoding, the session facade,

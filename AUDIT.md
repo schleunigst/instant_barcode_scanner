@@ -1,5 +1,19 @@
 # AUDIT — `instant_barcode_scanner`
 
+## Status (2026-11-10, post-close-out)
+
+- **Fixed on main:** A3 (dispose cancels a pending permission prompt; held-drive
+  regression test), A4 (still images are downsampled; allocation-bound JVM
+  test), A5 (activity display + main-thread metrics; off-device geometry tests).
+- **Corrected, not code defects:** A1 (the 0.2.0 source and metadata URLs are
+  intact; the original claim was an artifact of the dev checkout) and A2 (the
+  real CI already compiled Kotlin; the three remaining gaps were closed in
+  PR #22).
+- **Remaining:** A5's display-source change has no off-device red test (it
+  needs an `Activity`/`Display`); A6–A15 are unchanged (see the roadmap); the
+  dev checkout still diverges from the mirror by design.
+- **Waiting on the operator:** publish 0.3.0 (version bump, tag, publish).
+
 - **Date:** 2026-11-10
 - **Package:** `instant_barcode_scanner` (pub.dev, unverified uploader, BSD-3-Clause, Android-only plugin)
 - **Audit target:** the **published 0.2.0 archive** (`https://pub.dev/api/archives/instant_barcode_scanner-0.2.0.tar.gz`, published 2026-11-01T15:17:22Z, sha256 `fba7d5a4dcd23b70638f5294c87e883b3197b3de827becacbfe734f55e98db58`), against the repository `/home/admin/projects/publish/instant_barcode_scanner` — the GitHub mirror of `schleunigst/instant_barcode_scanner` — at `main` = `036f7f3433d9787e77745f5b34c7d6687a171caa`, tag `v0.2.0`.

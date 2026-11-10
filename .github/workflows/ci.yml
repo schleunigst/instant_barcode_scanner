@@ -68,10 +68,9 @@ jobs:
           fi
 
   android-instrumented:
-    # GitHub's ubuntu-latest image migrates over time and some images expose
-    # /dev/kvm without granting the runner user access. Without KVM the x86_64
-    # emulator boots in software (11+ minutes) and the adb post-boot setup
-    # fails. Pin an image with working KVM.
+    # Pin a stable image; the udev step below is what actually makes /dev/kvm
+    # usable (the runner user is not in the `kvm` group). Without it the
+    # emulator boots in software (~10 minutes) or the adb setup fails.
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -99,11 +98,10 @@ jobs:
           profile: pixel_6
           disable-animations: true
           # android-emulator-runner runs each script line with its own `sh -c`,
-          # so every line must carry its own `cd`. Install once, grant CAMERA,
-          # then let `flutter test` reinstall over it: `adb install -r` keeps
-          # the runtime grant.
+          # so every line must carry its own `cd`. The Dart integration suite
+          # needs a real camera and hangs on a hosted emulator; the mechanism's
+          # own instrumented tests use GrantPermissionRule and explicit
+          # timeouts, so they are the automatable device gate.
           script: |
             cd example && flutter pub get
-            cd example && flutter build apk --debug
-            cd example && adb install -r build/app/outputs/flutter-apk/app-debug.apk && adb shell pm grant dev.instantbarcode.instant_barcode_scanner_example android.permission.CAMERA
-            cd example && flutter test integration_test -d emulator-5554
+            cd example/android && ./gradlew :instant_barcode_scanner:connectedDebugAndroidTest --console=plain

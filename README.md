@@ -305,16 +305,25 @@ are the usual example — read `rawBytes`.
 
 ## Android setup
 
-Declare the camera permission in your app's manifest:
+Declare the camera permission in your app's manifest. The package does not
+declare it for you; without it, the runtime request is denied immediately.
 
 ```xml
 <uses-permission android:name="android.permission.CAMERA" />
+<uses-feature android:name="android.hardware.camera.any" android:required="false" />
 ```
+
+The `uses-feature` opt-out keeps the app installable on devices without a
+camera (tablets, Chromebooks, TV boxes). Declaring `CAMERA` otherwise makes
+`android.hardware.camera` required, and Play filters those devices out. Drop
+the opt-out only if every install must have a camera.
 
 Runtime permission handling is handled by the plugin on Android: it requests
 `CAMERA` on the first drive that needs the camera and reports
-`failed/permission_denied` when denied. The example app also asks up front
-with `permission_handler` so the prompt appears at a friendlier moment.
+`failed/permission_denied` when denied. After a permanent denial Android stops
+prompting, so send the user to the app's settings before retrying. The example
+app also asks up front with `permission_handler` so the prompt appears at a
+friendlier moment.
 
 Decoding uses ML Kit. The default is the bundled model
 (`com.google.mlkit:barcode-scanning`): hermetic, no Play Services dependency,
@@ -332,6 +341,14 @@ dependencies {
 
 The unbundled client downloads its model through Play Services on first use
 and requires Play Services on the device.
+
+### Platform support
+
+Android only. There is no iOS implementation, so there are no `Info.plist`
+keys to add and no iOS Simulator support; adding the package to an iOS build
+compiles, but the first call fails with `unsupported_platform`. Other
+platforms fail the same way. Guard calls with `Platform.isAndroid` if the same
+app targets them.
 
 ## Limitations
 

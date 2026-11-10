@@ -4,6 +4,13 @@
 
 Publishing is pending operator approval; the version is not bumped yet.
 
+### Changed
+
+- The declared environment is now coherent and wider: Dart 3.8 and Flutter
+  3.32 (previously Dart 3.13.5 together with Flutter 3.3, a combination no
+  Flutter release satisfies). Consumers on Flutter 3.32–3.46 are no longer
+  excluded for no reason.
+
 ### Fixed
 
 - `dispose()` no longer hangs behind a drive that is waiting on an unanswered
@@ -15,6 +22,10 @@ Publishing is pending operator approval; the version is not bumped yet.
 - Preview rotation now follows the activity's current display on Android 11+
   instead of the deprecated default display, and preview metrics are published
   on the main thread.
+- On platforms without an implementation the first call reports
+  `unsupported_platform` instead of a transport-level `channel-error`.
+- README: the Android manifest snippet includes the camera `uses-feature`
+  opt-out, and permission denial plus platform support are documented.
 
 ## 0.2.0
 

@@ -252,11 +252,21 @@ class InstantBarcodeScanner {
   }
 
   ScannerException _platformFailure(PlatformException e) {
+    // A missing implementation shows up as a transport-level channel error.
+    // Off Android that is the expected shape, not a broken plugin channel.
+    final unsupported =
+        e.code == 'channel-error' &&
+        defaultTargetPlatform != TargetPlatform.android;
     return ScannerException(
       ScannerStatus(
         state: state,
-        errorCode: e.code.isEmpty ? 'platform_error' : e.code,
-        errorMessage: e.message,
+        errorCode: unsupported
+            ? 'unsupported_platform'
+            : (e.code.isEmpty ? 'platform_error' : e.code),
+        errorMessage: unsupported
+            ? 'instant_barcode_scanner has no implementation on '
+                  '${defaultTargetPlatform.name}'
+            : e.message,
       ),
     );
   }
@@ -823,13 +833,7 @@ class InstantBarcodeScanner {
       }
       return id;
     } on PlatformException catch (e) {
-      throw ScannerException(
-        ScannerStatus(
-          state: state,
-          errorCode: 'platform_error',
-          errorMessage: e.message,
-        ),
-      );
+      throw _platformFailure(e);
     } finally {
       // Not cached on failure: a transient error must not poison later calls.
       _textureFuture = null;

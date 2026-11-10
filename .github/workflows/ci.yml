@@ -68,7 +68,11 @@ jobs:
           fi
 
   android-instrumented:
-    runs-on: ubuntu-latest
+    # GitHub's ubuntu-latest image migrates over time and some images expose
+    # /dev/kvm without granting the runner user access. Without KVM the x86_64
+    # emulator boots in software (11+ minutes) and the adb post-boot setup
+    # fails. Pin an image with working KVM.
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7

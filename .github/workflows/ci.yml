@@ -87,8 +87,12 @@ jobs:
           arch: x86_64
           profile: pixel_6
           disable-animations: true
-          # android-emulator-runner executes each script line with its own
-          # `sh -c`, so every line must carry its own `cd`.
+          # android-emulator-runner runs each script line with its own `sh -c`,
+          # so every line must carry its own `cd`. `flutter test` performs the
+          # build and install itself; a second explicit install roughly doubles
+          # the slowest step on a software-GPU emulator. The background watcher
+          # grants CAMERA as soon as the app appears, then keeps re-granting so
+          # a reinstall cannot leave the test on a permission dialog.
           script: |
-            cd example && flutter pub get && flutter build apk --debug && adb install -r build/app/outputs/flutter-apk/app-debug.apk && adb shell pm grant dev.instantbarcode.instant_barcode_scanner_example android.permission.CAMERA
-            cd example && (while true; do adb shell pm grant dev.instantbarcode.instant_barcode_scanner_example android.permission.CAMERA >/dev/null 2>&1; sleep 1; done) & cd example && flutter test integration_test -d emulator-5554
+            cd example && flutter pub get
+            cd example && (while true; do adb shell pm grant dev.instantbarcode.instant_barcode_scanner_example android.permission.CAMERA >/dev/null 2>&1; sleep 0.2; done) & cd example && flutter test integration_test -d emulator-5554

@@ -6,9 +6,9 @@ Publishing is pending operator approval; the version is not bumped yet.
 
 ### Changed
 
-- The declared environment is now coherent and wider: Dart 3.2 and Flutter
-  3.16 (previously Dart 3.13.5 together with Flutter 3.3, a combination no
-  Flutter release satisfies). Consumers on Flutter 3.16–3.46 are no longer
+- The declared environment is now coherent and wider: Dart 3.8 and Flutter
+  3.32 (previously Dart 3.13.5 together with Flutter 3.3, a combination no
+  Flutter release satisfies). Consumers on Flutter 3.32–3.46 are no longer
   excluded for no reason.
 
 ### Fixed

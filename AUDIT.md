@@ -5,7 +5,7 @@
 - **Fixed on main:** A3 (dispose cancels a pending permission prompt; held-drive
   regression test), A4 (still images are downsampled; allocation-bound JVM
   test), A5 (activity display + main-thread metrics; off-device geometry tests),
-  A6 (Dart 3.2 / Flutter 3.16 floor, guarded by a pubspec test), A9
+  A6 (Dart 3.8 / Flutter 3.32 floor, guarded by a pubspec test), A9
   (`unsupported_platform` off Android, with platform-override tests), A10
   (Android manifest `uses-feature` opt-out, guarded by a README test).
 - **Corrected, not code defects:** A1 (the 0.2.0 source and metadata URLs are

@@ -18,7 +18,8 @@
   state. A8 (enum/platform policy) and A15 (dispose/background docs) are
   docs-only; A11–A14 are historical or dev/example-only. The dev checkout still
   diverges from the mirror by design.
-- **Waiting on the operator:** publish 0.3.0 (version bump, tag, publish).
+- **Release:** `release/0.3.0` is prepared (version bumped, changelog dated,
+  archive proven); publishing 0.3.0 awaits operator approval.
 
 - **Date:** 2026-11-10
 - **Package:** `instant_barcode_scanner` (pub.dev, unverified uploader, BSD-3-Clause, Android-only plugin)

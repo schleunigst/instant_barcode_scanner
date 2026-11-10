@@ -1,8 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 — 2026-11-10
 
-Publishing is pending operator approval; the version is not bumped yet.
+A lifecycle fix, a memory fix, and corrected install/platform declarations.
 
 ### Changed
 

@@ -40,7 +40,7 @@ seconds after your last read (so back-to-back scans stay hot), `parked` to
 `closed` after a longer idle. `live` is spent only while a read can
 actually happen; the seconds in between are parked, not live.
 
-> Status: early development. The current release is `0.2.0`; APIs may change
+> Status: early development. The current release is `0.3.0`; APIs may change
 > between 0.x releases.
 
 ## Install
@@ -53,7 +53,7 @@ Or add it manually:
 
 ```yaml
 dependencies:
-  instant_barcode_scanner: ^0.2.0
+  instant_barcode_scanner: ^0.3.0
 ```
 
 Requires Android SDK 24 or newer. Your app declares the camera permission

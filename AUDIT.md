@@ -4,14 +4,20 @@
 
 - **Fixed on main:** A3 (dispose cancels a pending permission prompt; held-drive
   regression test), A4 (still images are downsampled; allocation-bound JVM
-  test), A5 (activity display + main-thread metrics; off-device geometry tests).
+  test), A5 (activity display + main-thread metrics; off-device geometry tests),
+  A6 (Dart 3.2 / Flutter 3.16 floor, guarded by a pubspec test), A9
+  (`unsupported_platform` off Android, with platform-override tests), A10
+  (Android manifest `uses-feature` opt-out, guarded by a README test).
 - **Corrected, not code defects:** A1 (the 0.2.0 source and metadata URLs are
   intact; the original claim was an artifact of the dev checkout) and A2 (the
   real CI already compiled Kotlin; the three remaining gaps were closed in
   PR #22).
 - **Remaining:** A5's display-source change has no off-device red test (it
-  needs an `Activity`/`Display`); A6–A15 are unchanged (see the roadmap); the
-  dev checkout still diverges from the mirror by design.
+  needs an `Activity`/`Display`). A7 is deferred: torch is live-only by design
+  and `torchEnabled` covers the pre-live case; changing it needs a pending-torch
+  state. A8 (enum/platform policy) and A15 (dispose/background docs) are
+  docs-only; A11–A14 are historical or dev/example-only. The dev checkout still
+  diverges from the mirror by design.
 - **Waiting on the operator:** publish 0.3.0 (version bump, tag, publish).
 
 - **Date:** 2026-11-10

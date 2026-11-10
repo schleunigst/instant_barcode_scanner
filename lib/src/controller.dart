@@ -683,6 +683,11 @@ class InstantBarcodeScanner {
   /// a reset — the plugin can serve a new controller afterwards. Repeated
   /// calls return the same future, so awaiting [dispose] always guarantees
   /// teardown even when several callers race.
+  ///
+  /// Teardown is deliberately not queued behind earlier commands. A drive can
+  /// be waiting on a runtime-permission prompt, and the platform's dispose is
+  /// what cancels that prompt; queueing it behind the drive would leave both
+  /// waiting forever.
   Future<void> dispose() {
     final existing = _disposeFuture;
     if (existing != null) {
@@ -699,7 +704,7 @@ class InstantBarcodeScanner {
       ),
     );
     _activeScan = null;
-    final future = _enqueue(() async {
+    final future = () async {
       try {
         await _platform.dispose();
       } finally {
@@ -707,7 +712,7 @@ class InstantBarcodeScanner {
         _previewMetrics.value = null;
         _analysisMetrics.value = null;
       }
-    });
+    }();
     _disposeFuture = future;
     unawaited(_scanController.close());
     unawaited(_eventController.close());

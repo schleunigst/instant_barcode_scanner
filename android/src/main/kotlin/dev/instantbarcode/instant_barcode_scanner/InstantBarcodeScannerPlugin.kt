@@ -18,6 +18,7 @@ import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import android.media.ExifInterface
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -145,6 +146,7 @@ class InstantBarcodeScannerPlugin : FlutterPlugin, ActivityAware, ScannerHostApi
     @Volatile
     private var lastState: PlatformState = PlatformState.CLOSED
     private val analyzedFrames = AtomicLong(0)
+    private val mainHandler = Handler(Looper.getMainLooper())
     private val mutex = Mutex()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -423,7 +425,13 @@ class InstantBarcodeScannerPlugin : FlutterPlugin, ActivityAware, ScannerHostApi
     }
 
     private fun invertedInputImage(file: File): InputImage {
-        val decoded = BitmapFactory.decodeFile(file.absolutePath)
+        // Decode bounds first: this path copies the bitmap twice and must not
+        // allocate a full-resolution phone photo.
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(file.absolutePath, bounds)
+        val sampleSize = ImageSampling.inSampleSize(bounds.outWidth, bounds.outHeight)
+        val options = BitmapFactory.Options().apply { inSampleSize = sampleSize }
+        val decoded = BitmapFactory.decodeFile(file.absolutePath, options)
             ?: throw IllegalArgumentException("could not decode image")
         val orientation = try {
             ExifInterface(file.absolutePath).getAttributeInt(
@@ -526,7 +534,11 @@ class InstantBarcodeScannerPlugin : FlutterPlugin, ActivityAware, ScannerHostApi
             previewSurface = { surface },
             onPreviewSize = { width, height, sensorOrientation ->
                 entry?.surfaceTexture()?.setDefaultBufferSize(width, height)
-                publishPreviewMetrics(width, height, sensorOrientation)
+                // The mechanism calls this on the camera thread; WindowManager
+                // and the activity display belong to the main thread.
+                mainHandler.post {
+                    publishPreviewMetrics(width, height, sensorOrientation)
+                }
             },
             onStateChanged = { snapshot ->
                 lastState = snapshot.state
@@ -689,30 +701,41 @@ class InstantBarcodeScannerPlugin : FlutterPlugin, ActivityAware, ScannerHostApi
         previewSensorOrientation = sensorOrientation
         val api = flutterApi ?: return
         val host = activity ?: return
-        @Suppress("DEPRECATION")
-        val displayRotation = when (host.windowManager.defaultDisplay.rotation) {
-            Surface.ROTATION_90 -> 90
-            Surface.ROTATION_180 -> 180
-            Surface.ROTATION_270 -> 270
-            else -> 0
-        }
         // Flutter's Texture already applies the SurfaceTexture transform, which
         // includes the camera's sensor orientation. Only the display rotation
         // is left for the Dart layer to apply, so report the upright size
         // (swapped when the sensor sits sideways) and the display rotation.
         // Mirroring is not part of the transform, so front cameras still opt
         // in explicitly.
-        val sideways = sensorOrientation % 180 == 90
-        val uprightWidth = if (sideways) height else width
-        val uprightHeight = if (sideways) width else height
         val front = selection.facing == PlatformCameraFacing.FRONT
-        val metrics = PlatformPreviewMetrics(
-            width = uprightWidth.toLong(),
-            height = uprightHeight.toLong(),
-            rotationDegrees = displayRotation.toLong(),
+        val preview = PreviewGeometry.calculate(
+            width = width,
+            height = height,
+            sensorOrientation = sensorOrientation,
+            displayRotationDegrees = activityDisplayRotationDegrees(host),
             mirrored = front,
         )
+        val metrics = PlatformPreviewMetrics(
+            width = preview.width.toLong(),
+            height = preview.height.toLong(),
+            rotationDegrees = preview.rotationDegrees.toLong(),
+            mirrored = preview.mirrored,
+        )
         scope.launch { api.onPreviewMetrics(metrics) }
+    }
+
+    /**
+     * Rotation of the activity's own display. `defaultDisplay` is deprecated
+     * on API 30+ and is wrong in multi-window and on secondary displays.
+     */
+    private fun activityDisplayRotationDegrees(host: Activity): Int {
+        val rotation = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            host.display?.rotation ?: Surface.ROTATION_0
+        } else {
+            @Suppress("DEPRECATION")
+            host.windowManager.defaultDisplay.rotation
+        }
+        return PreviewGeometry.displayRotationDegrees(rotation)
     }
 
     private fun releaseTexture() {

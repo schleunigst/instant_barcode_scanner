@@ -30,6 +30,10 @@ class FakePlatform implements InstantBarcodeScannerPlatform {
   Future<List<ScanResult>> Function(String path)? analyzeImageHandler;
   bool holdDrives = false;
 
+  /// Model the native dispose: a pending permission prompt is cancelled and
+  /// the held drive resolves with a permission failure.
+  bool cancelHeldOnDispose = true;
+
   ScannerConfig? configured;
   int analyzedFrames = 0;
   bool torch = false;
@@ -105,6 +109,22 @@ class FakePlatform implements InstantBarcodeScannerPlatform {
   Future<void> dispose() {
     disposeCalls++;
     disposed = true;
+    if (cancelHeldOnDispose && _held.isNotEmpty) {
+      final held = _held.toList();
+      _held.clear();
+      for (final completer in held) {
+        if (!completer.isCompleted) {
+          completer.complete(
+            _confirm(
+              const ScannerStatus(
+                state: ScannerState.closed,
+                errorCode: 'permission_denied',
+              ),
+            ),
+          );
+        }
+      }
+    }
     return Future.value();
   }
 

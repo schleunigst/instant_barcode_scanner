@@ -44,6 +44,8 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter test test
+      - run: ./gradlew :instant_barcode_scanner:testDebugUnitTest --console=plain
+        working-directory: example/android
       - run: flutter build apk --debug
       - run: ./gradlew :instant_barcode_scanner:assembleDebugAndroidTest --console=plain
         working-directory: example/android

@@ -39,6 +39,9 @@ android {
         getByName("main") {
             java.srcDirs("src/main/kotlin")
         }
+        getByName("test") {
+            java.srcDirs("src/test/kotlin")
+        }
         getByName("androidTest") {
             java.srcDirs("src/androidTest/kotlin")
         }
@@ -58,6 +61,8 @@ kotlin {
 }
 
 dependencies {
+    testImplementation("junit:junit:4.13.2")
+
     // Bundled ML Kit barcode model: no Play Services or first-use model
     // download. Swap for `com.google.android.gms:play-services-mlkit-barcode-scanning`
     // to use the thin, unbundled variant instead.

@@ -4,6 +4,12 @@
 
 ### Changed
 
+- The torch rejects `setTorch(true)` outside `live` with `unsupported_state`
+  instead of a `StateError`; `setTorch(false)` outside `live` is a no-op.
+  `ScannerConfig.torchEnabled` remains the pre-live path.
+- `InstantBarcodeScannerPlatform` is no longer exported; the `platform`
+  constructor parameters are test seams. Public enums may gain values — see
+  "Public API and enum growth" in the README.
 - `dispose()` now disposes the controller's value notifiers. Remove listeners
   before calling dispose; adding one afterwards throws, as with any disposed
   `ChangeNotifier`. Reading `status`, `state` and the other values remains
@@ -16,6 +22,8 @@
   events delivered after teardown are dropped.
 - The example no longer requests the camera permission itself; the plugin is
   the single owner of the prompt.
+- README: lifecycle and disposal behaviour and the enum/platform API policy
+  are documented.
 
 ## 0.3.0 — 2026-11-10
 
@@ -100,6 +108,8 @@ metrics, and corrected preview geometry.
   running controller.
 
 ## 0.1.0
+
+Never published to pub.dev; 0.2.0 was the first public release.
 
 Initial development version.
 

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui' show Rect;
 
 import 'package:instant_barcode_scanner/instant_barcode_scanner.dart';
+import 'package:instant_barcode_scanner/src/platform/platform.dart';
 
 /// Platform fake with the real async shape: [driveTo] never completes
 /// synchronously, the state event is delivered before the reply (pigeon
@@ -37,6 +38,7 @@ class FakePlatform implements InstantBarcodeScannerPlatform {
   ScannerConfig? configured;
   int analyzedFrames = 0;
   bool torch = false;
+  int torchCalls = 0;
   double zoomRatio = 1.0;
   Rect? scanWindow;
   List<ScanResult> analyzeImageResult = const [];
@@ -143,6 +145,7 @@ class FakePlatform implements InstantBarcodeScannerPlatform {
 
   @override
   Future<void> setTorch(bool enabled) {
+    torchCalls++;
     torch = enabled;
     return torchHandler?.call(enabled) ?? Future.value();
   }

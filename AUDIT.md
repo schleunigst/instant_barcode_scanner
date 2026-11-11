@@ -9,17 +9,19 @@
   (`unsupported_platform` off Android, with platform-override tests), A10
   (Android manifest `uses-feature` opt-out, guarded by a README test),
   A13 (notifiers disposed and late completions dropped, with post-dispose
-  tests), A14 (the example lets the plugin own the only permission prompt).
+  tests), A14 (the example lets the plugin own the only permission prompt),
+  A7 (torch rejects pre-live requests with `unsupported_state`, per the
+  decision above), A8 (`InstantBarcodeScannerPlatform` unexported and the
+  enum-growth rule published), A15 (lifecycle/disposal prose) and A11 (the
+  0.1.0 changelog entry is marked as never published).
 - **Corrected, not code defects:** A1 (the 0.2.0 source and metadata URLs are
   intact; the original claim was an artifact of the dev checkout) and A2 (the
   real CI already compiled Kotlin; the three remaining gaps were closed in
   PR #22).
 - **Remaining:** A5's display-source change has no off-device red test (it
-  needs an `Activity`/`Display`). A7 is deferred: torch is live-only by design
-  and `torchEnabled` covers the pre-live case; changing it needs a pending-torch
-  state (proposal before code). A8 (enum/platform policy) and A15
-  (dispose/background docs) are docs-only; A11–A12 are historical or
-  dev-only. The dev checkout still diverges from the mirror by design.
+  needs an `Activity`/`Display`). A12 is the dev checkout's README only and
+  does not ship with the package; the dev checkout still diverges from the
+  mirror by design.
 - **Release:** 0.3.0 is published (tag `v0.3.0`, archive sha256
   `41063c1f…`); A13/A14 target the next release and are not in 0.3.0.
 
@@ -190,6 +192,22 @@ A1 and A2 are **corrected** entries: the first audit's claims did not survive co
 **Why it matters.** For the stated use cases (checkout lanes, inventory walks, access points) the dark, low-light first scan is the common one; forcing "scan → wait for live → then call setTorch" means the first frame the user sees is unusable. There is also no auto-torch, tap-to-focus, focus-mode control or exposure compensation, so low light is entirely the host's problem.
 
 **Smallest fix.** Allow `setTorch` while `parked`/`open`/`live` (the native side already stores it) and let it apply when streaming starts; document the resulting contract. Consider `autoTorch` on low luma as a later feature.
+
+#### A7 decision (2026-11-11): reject until live with `unsupported_state`
+
+`setTorch(true)` throws `ScannerException`/`unsupported_state` unless `live`.
+No pending intent is stored, so `torchState` never reports `on` while the lamp
+is off. `parked`/`open`/`closed` — including a drive awaiting permission —
+fails immediately without queueing or prompting. `setTorch(false)` outside
+`live` is a no-op (no platform call; `torchState` stays `off`/`unavailable`).
+A live camera with no flash still throws `unsupported` (hardware, not state).
+`ScannerConfig.torchEnabled` is the only pre-live path: construction-scoped,
+applied when streaming starts. If the camera never becomes live, nothing is
+pending. `park()`/`close()`/backgrounding turn the lamp off and report `off`;
+`dispose()` disposes the notifier, so a late listener throws.
+Why not `pending`: it adds a public enum value (the A8 hazard) and must survive
+park/close/background to stay truthful; the config flag already carries the
+legitimate pre-live intent.
 
 ### A8. Public enums are exhaustive-switch traps: an additive enum value is a source-breaking change
 

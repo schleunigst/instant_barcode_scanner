@@ -1,6 +1,9 @@
 # Changelog
 
-## Unreleased
+## 0.4.0 — 2026-11-11
+
+Truthful torch state before live, complete disposal, a smaller public surface,
+and documented lifecycle/API rules.
 
 ### Changed
 
@@ -24,6 +27,18 @@
   the single owner of the prompt.
 - README: lifecycle and disposal behaviour and the enum/platform API policy
   are documented.
+
+### Docs
+
+- The historical 0.1.0 changelog entry is marked as never published.
+
+### Notes
+
+- Preview rotation's display-source change (Android 11+ activity display) has
+  no off-device red test: the rotation math is unit-tested and the source
+  change is exercised by the instrumented device job (A5).
+- The test-count note (A12) concerns a separate development checkout and does
+  not ship with this package.
 
 ## 0.3.0 — 2026-11-10
 

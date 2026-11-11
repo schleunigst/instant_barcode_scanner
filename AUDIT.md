@@ -7,7 +7,9 @@
   test), A5 (activity display + main-thread metrics; off-device geometry tests),
   A6 (Dart 3.8 / Flutter 3.32 floor, guarded by a pubspec test), A9
   (`unsupported_platform` off Android, with platform-override tests), A10
-  (Android manifest `uses-feature` opt-out, guarded by a README test).
+  (Android manifest `uses-feature` opt-out, guarded by a README test),
+  A13 (notifiers disposed and late completions dropped, with post-dispose
+  tests), A14 (the example lets the plugin own the only permission prompt).
 - **Corrected, not code defects:** A1 (the 0.2.0 source and metadata URLs are
   intact; the original claim was an artifact of the dev checkout) and A2 (the
   real CI already compiled Kotlin; the three remaining gaps were closed in
@@ -15,11 +17,11 @@
 - **Remaining:** A5's display-source change has no off-device red test (it
   needs an `Activity`/`Display`). A7 is deferred: torch is live-only by design
   and `torchEnabled` covers the pre-live case; changing it needs a pending-torch
-  state. A8 (enum/platform policy) and A15 (dispose/background docs) are
-  docs-only; A11–A14 are historical or dev/example-only. The dev checkout still
-  diverges from the mirror by design.
-- **Release:** `release/0.3.0` is prepared (version bumped, changelog dated,
-  archive proven); publishing 0.3.0 awaits operator approval.
+  state (proposal before code). A8 (enum/platform policy) and A15
+  (dispose/background docs) are docs-only; A11–A12 are historical or
+  dev-only. The dev checkout still diverges from the mirror by design.
+- **Release:** 0.3.0 is published (tag `v0.3.0`, archive sha256
+  `41063c1f…`); A13/A14 target the next release and are not in 0.3.0.
 
 - **Date:** 2026-11-10
 - **Package:** `instant_barcode_scanner` (pub.dev, unverified uploader, BSD-3-Clause, Android-only plugin)

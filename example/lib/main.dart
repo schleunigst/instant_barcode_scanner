@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:instant_barcode_scanner/instant_barcode_scanner.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 void main() {
   runApp(const ScannerExampleApp());
@@ -77,12 +76,8 @@ class _ScannerPageState extends State<ScannerPage> {
   }
 
   Future<void> _warmUp() async {
+    // The plugin owns the CAMERA prompt; this screen does not request it.
     try {
-      final permission = await Permission.camera.request();
-      if (!permission.isGranted) {
-        _setError('camera permission not granted');
-        return;
-      }
       await _scanner.warmUp();
     } catch (error) {
       _setError('warmUp failed: $error');

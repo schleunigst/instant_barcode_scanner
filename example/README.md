@@ -14,9 +14,8 @@ flutter pub get
 flutter run
 ```
 
-The demo declares the camera permission and requests it before warming up.
-The plugin also requests it on the first camera drive, so apps that do not ask
-up front still get the correct permission-denied state.
+The demo declares the camera permission. The plugin owns the runtime prompt on
+the first camera drive, so the demo does not ask separately.
 
 ## Tests
 

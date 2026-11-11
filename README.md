@@ -321,9 +321,8 @@ the opt-out only if every install must have a camera.
 Runtime permission handling is handled by the plugin on Android: it requests
 `CAMERA` on the first drive that needs the camera and reports
 `failed/permission_denied` when denied. After a permanent denial Android stops
-prompting, so send the user to the app's settings before retrying. The example
-app also asks up front with `permission_handler` so the prompt appears at a
-friendlier moment.
+prompting, so send the user to the app's settings before retrying. The plugin
+is the single owner of the prompt: the example does not ask separately.
 
 Decoding uses ML Kit. The default is the bundled model
 (`com.google.mlkit:barcode-scanning`): hermetic, no Play Services dependency,

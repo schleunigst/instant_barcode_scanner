@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- `dispose()` now disposes the controller's value notifiers. Remove listeners
+  before calling dispose; adding one afterwards throws, as with any disposed
+  `ChangeNotifier`. Reading `status`, `state` and the other values remains
+  safe. This is a post-dispose observable-behaviour change.
+
+### Fixed
+
+- Late async completions after `dispose()` (zoom, torch, camera switch,
+  capabilities) no longer mutate notifiers or fire listeners, and platform
+  events delivered after teardown are dropped.
+- The example no longer requests the camera permission itself; the plugin is
+  the single owner of the prompt.
+
 ## 0.3.0 — 2026-11-10
 
 A lifecycle fix, a memory fix, and corrected install/platform declarations.

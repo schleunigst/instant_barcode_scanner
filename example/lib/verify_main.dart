@@ -15,7 +15,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:instant_barcode_scanner/instant_barcode_scanner.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 void main() {
   runApp(const VerifyApp());
@@ -79,12 +78,8 @@ class _VerifyHomeState extends State<VerifyHome> {
   }
 
   Future<void> _boot() async {
+    // The plugin owns the CAMERA prompt; this screen does not request it.
     try {
-      final permission = await Permission.camera.request();
-      if (!permission.isGranted) {
-        if (mounted) setState(() => _error = 'camera permission not granted');
-        return;
-      }
       await _scanner.warmUp();
       if (!mounted) return;
       setState(() => _ready = true);

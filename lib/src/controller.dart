@@ -210,6 +210,9 @@ class InstantBarcodeScanner {
     await _ensureConfigured();
     try {
       final caps = await _platform.getCapabilities();
+      if (_disposed) {
+        return caps;
+      }
       _parkSupported = caps.supportsPark;
       _supportsTorch = caps.supportsTorch;
       if (!caps.supportsTorch) {
@@ -429,6 +432,9 @@ class InstantBarcodeScanner {
       } finally {
         _switchingCamera = false;
       }
+      if (_disposed) {
+        return;
+      }
       _adopt(status);
       final expected = before == ScannerState.failed
           ? ScannerState.closed
@@ -472,6 +478,9 @@ class InstantBarcodeScanner {
       } on PlatformException catch (e) {
         throw _platformFailure(e);
       }
+      if (_disposed) {
+        return;
+      }
       _torchState.value = enabled ? TorchState.on : TorchState.off;
     });
   }
@@ -504,6 +513,9 @@ class InstantBarcodeScanner {
         await _platform.setZoom(ratio);
       } on PlatformException catch (e) {
         throw _platformFailure(e);
+      }
+      if (_disposed) {
+        return;
       }
       _zoomScale.value = scale;
     });
@@ -698,6 +710,11 @@ class InstantBarcodeScanner {
   /// be waiting on a runtime-permission prompt, and the platform's dispose is
   /// what cancels that prompt; queueing it behind the drive would leave both
   /// waiting forever.
+  ///
+  /// The value notifiers are disposed too: remove listeners before calling
+  /// [dispose], and do not add new ones afterwards (a disposed `ChangeNotifier`
+  /// rejects them). Reading [status], [state] and the other notifiers' values
+  /// remains safe.
   Future<void> dispose() {
     final existing = _disposeFuture;
     if (existing != null) {
@@ -721,6 +738,14 @@ class InstantBarcodeScanner {
         _textureId.value = null;
         _previewMetrics.value = null;
         _analysisMetrics.value = null;
+        // Disposed so a late completion cannot notify and a listener cannot be
+        // attached to a dead controller. Reading value/state stays safe.
+        _status.dispose();
+        _textureId.dispose();
+        _previewMetrics.dispose();
+        _analysisMetrics.dispose();
+        _torchState.dispose();
+        _zoomScale.dispose();
       }
     }();
     _disposeFuture = future;

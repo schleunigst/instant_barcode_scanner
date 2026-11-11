@@ -94,8 +94,14 @@ void main() {
         scanner.setTorch(true).then((_) {}, onError: (Object e) => error = e),
       );
       async.flushMicrotasks();
-      expect(error, isA<StateError>());
+      expect(error, isA<ScannerException>());
+      expect(
+        (error! as ScannerException).status.errorCode,
+        'unsupported_state',
+      );
+      expect(scanner.torchState.value, TorchState.off);
       expect(platform.torch, isFalse);
+      expect(platform.torchCalls, 0);
 
       ScanResult? read;
       unawaited(scanner.scan().then((value) => read = value));
@@ -221,6 +227,77 @@ void main() {
     });
   });
 
+  test('setTorch(true) while parked is unsupported_state, not queued', () {
+    fakeAsync((async) {
+      final platform = FakePlatform()..capabilitiesResult = _caps(torch: true);
+      final scanner = InstantBarcodeScanner(platform: platform);
+      unawaited(scanner.warmUp());
+      async.flushMicrotasks();
+      expect(scanner.state, ScannerState.parked);
+
+      Object? error;
+      unawaited(
+        scanner.setTorch(true).then((_) {}, onError: (Object e) => error = e),
+      );
+      async.flushMicrotasks();
+
+      expect(
+        (error! as ScannerException).status.errorCode,
+        'unsupported_state',
+      );
+      expect((error! as ScannerException).status.state, ScannerState.parked);
+      expect(scanner.torchState.value, TorchState.off);
+      expect(platform.torchCalls, 0);
+
+      unawaited(scanner.dispose());
+      async.flushMicrotasks();
+    });
+  });
+
+  test('a drive awaiting permission cannot be lit early', () {
+    fakeAsync((async) {
+      final platform = FakePlatform()
+        ..holdDrives = true
+        ..capabilitiesResult = _caps(torch: true);
+      final scanner = InstantBarcodeScanner(platform: platform);
+      unawaited(scanner.scan().then((_) {}, onError: (Object _) {}));
+      async.flushMicrotasks();
+      expect(scanner.state, ScannerState.closed);
+
+      Object? error;
+      unawaited(
+        scanner.setTorch(true).then((_) {}, onError: (Object e) => error = e),
+      );
+      async.flushMicrotasks();
+
+      expect(
+        (error! as ScannerException).status.errorCode,
+        'unsupported_state',
+      );
+      expect(platform.torchCalls, 0);
+
+      unawaited(scanner.dispose());
+      async.flushMicrotasks();
+    });
+  });
+
+  test('setTorch(false) outside live is a no-op', () {
+    fakeAsync((async) {
+      final platform = FakePlatform()..capabilitiesResult = _caps(torch: true);
+      final scanner = InstantBarcodeScanner(platform: platform);
+      expect(scanner.torchState.value, TorchState.off);
+
+      unawaited(scanner.setTorch(false));
+      async.flushMicrotasks();
+
+      expect(scanner.torchState.value, TorchState.off);
+      expect(platform.torchCalls, 0);
+
+      unawaited(scanner.dispose());
+      async.flushMicrotasks();
+    });
+  });
+
   test('controls queue behind lifecycle commands in call order', () {
     fakeAsync((async) {
       final platform = FakePlatform()..capabilitiesResult = _caps(torch: true);
@@ -238,7 +315,11 @@ void main() {
       async.flushMicrotasks();
 
       expect(scanner.state, ScannerState.closed);
-      expect(error, isA<StateError>());
+      expect(error, isA<ScannerException>());
+      expect(
+        (error! as ScannerException).status.errorCode,
+        'unsupported_state',
+      );
       expect(platform.torch, isFalse);
 
       unawaited(scanner.dispose());

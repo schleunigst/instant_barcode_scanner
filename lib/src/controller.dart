@@ -274,6 +274,18 @@ class InstantBarcodeScanner {
     );
   }
 
+  ScannerException _unsupportedState() {
+    return ScannerException(
+      ScannerStatus(
+        state: state,
+        errorCode: 'unsupported_state',
+        errorMessage:
+            'the torch can only be enabled while live; use '
+            'ScannerConfig.torchEnabled to start live with the torch on',
+      ),
+    );
+  }
+
   /// Prepare for scanning: create the preview texture and drive to `parked`
   /// (device open, session configured, repeating stopped).
   ///
@@ -451,15 +463,26 @@ class InstantBarcodeScanner {
 
   /// Turn the torch on or off. Enabling requires `live`; the torch always
   /// goes off when streaming stops.
+  ///
+  /// `setTorch(true)` in any other state fails with `unsupported_state`
+  /// instead of queueing a pending intent; use [ScannerConfig.torchEnabled]
+  /// to start live with the torch already on. `setTorch(false)` outside
+  /// `live` is a no-op and never touches the platform.
   Future<void> setTorch(bool enabled) async {
     _ensureUsable();
+    if (!enabled && state != ScannerState.live) {
+      return;
+    }
     if (enabled && state != ScannerState.live) {
-      throw StateError('the torch can only be enabled while live');
+      throw _unsupportedState();
     }
     await _enqueue(() async {
       _ensureUsable();
+      if (!enabled && state != ScannerState.live) {
+        return;
+      }
       if (enabled && state != ScannerState.live) {
-        throw StateError('the torch can only be enabled while live');
+        throw _unsupportedState();
       }
       await _ensureConfigured();
       final caps = await capabilities;

@@ -259,6 +259,20 @@ InstantBarcodeScannerView(
 )
 ```
 
+### Public API and enum growth
+
+The public enums (`BarcodeFormat`, `BarcodeType`, `CameraFacing`,
+`CameraLensType`, `DetectionSpeed`, `ScannerState`, `TorchState`) describe
+platform capabilities and may gain values in a 0.x minor. Treat every switch
+over them as non-exhaustive and include a `default` branch: a new value breaks
+exhaustive consumers at compile time, so it is called out in the changelog even
+though 0.x permits it.
+
+`InstantBarcodeScannerPlatform` is not public API. It is the package's test
+seam; it is no longer exported from the library barrel, and the `platform`
+constructor parameters are implementation details. Do not implement or depend
+on its members.
+
 ### States
 
 | State    | Camera device | Session | Frames | Notes                                    |
@@ -295,6 +309,21 @@ When the host activity goes to the background, the plugin closes the camera
 itself — Android revokes camera access for background apps anyway, and it is
 better to close deliberately than to be disconnected. The scanner does not
 reopen on its own when the app returns; call `warmUp()` again.
+
+### Lifecycle and disposal
+
+- **Backgrounding:** the plugin closes the camera when the activity stops; the
+  scanner reports `closed`, and an in-flight `scan()` fails with a
+  `StateError` ("the camera was closed while a scan was in flight"). The
+  scanner does not reopen on return — call `warmUp()` again.
+- **`park()`/`close()` mid-scan:** the pending `scan()` fails with a
+  `StateError`.
+- **`dispose()` mid-scan:** the pending `scan()` fails with a `StateError`, a
+  pending permission prompt is cancelled, and repeated calls return the same
+  future. The `scans` and `scanEvents` streams close.
+- **After `dispose()`:** remove notifier listeners first. Adding one afterwards
+  throws because the notifiers are disposed; reading `status`, `state`, and
+  the other values remains safe.
 
 ### Raw bytes
 
